@@ -1,18 +1,20 @@
 package com.example.view;
 
+import com.example.controller.MedicineController;
 import com.example.model.Medicine;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.util.ArrayList;
+import java.util.List;
 
 public class MedicinePanel extends JPanel {
+    private MedicineController controller;
     private JTable medicineTable;
     private DefaultTableModel tableModel;
-    private ArrayList<Medicine> medicines;
 
-    public MedicinePanel() {
-        medicines = new ArrayList<>();
+    public MedicinePanel(MedicineController controller) {
+        this.controller = controller;
         setLayout(new BorderLayout());
         
         // Title
@@ -22,11 +24,13 @@ public class MedicinePanel extends JPanel {
         add(titleLabel, BorderLayout.NORTH);
         
         // Table
-        String[] columns = {"Name", "Dosage", "Frequency"};
+        String[] columns = {"ID", "Name", "Dosage", "Frequency"};
         tableModel = new DefaultTableModel(columns, 0);
         medicineTable = new JTable(tableModel);
         JScrollPane scrollPane = new JScrollPane(medicineTable);
         add(scrollPane, BorderLayout.CENTER);
+        
+        loadMedicines();
         
         // Button panel
         JPanel buttonPanel = new JPanel();
@@ -34,6 +38,14 @@ public class MedicinePanel extends JPanel {
         addButton.addActionListener(e -> showAddDialog());
         buttonPanel.add(addButton);
         add(buttonPanel, BorderLayout.SOUTH);
+    }
+
+    private void loadMedicines() {
+        tableModel.setRowCount(0);
+        List<Medicine> medicines = controller.getAllMedicines();
+        for (Medicine med : medicines) {
+            tableModel.addRow(new Object[]{med.getId(), med.getName(), med.getDosage(), med.getFrequency()});
+        }
     }
 
     private void showAddDialog() {
@@ -64,8 +76,8 @@ public class MedicinePanel extends JPanel {
             
             if (!name.isEmpty()) {
                 Medicine medicine = new Medicine(name, dosage, frequency, instructions);
-                medicines.add(medicine);
-                tableModel.addRow(new Object[]{name, dosage, frequency});
+                controller.addMedicine(medicine);
+                loadMedicines();
                 dialog.dispose();
             } else {
                 JOptionPane.showMessageDialog(dialog, "Name is required!");
