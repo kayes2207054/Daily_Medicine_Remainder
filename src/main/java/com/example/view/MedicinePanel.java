@@ -36,7 +36,14 @@ public class MedicinePanel extends JPanel {
         JPanel buttonPanel = new JPanel();
         JButton addButton = new JButton("Add Medicine");
         addButton.addActionListener(e -> showAddDialog());
+        
+        JButton deleteButton = new JButton("Delete Medicine");
+        deleteButton.setBackground(new Color(231, 76, 60));
+        deleteButton.setForeground(Color.WHITE);
+        deleteButton.addActionListener(e -> deleteMedicine());
+        
         buttonPanel.add(addButton);
+        buttonPanel.add(deleteButton);
         add(buttonPanel, BorderLayout.SOUTH);
     }
 
@@ -99,5 +106,33 @@ public class MedicinePanel extends JPanel {
         dialog.add(cancelButton);
         
         dialog.setVisible(true);
+    }
+
+    private void deleteMedicine() {
+        int selectedRow = medicineTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "Please select a medicine to delete!");
+            return;
+        }
+        
+        int medicineId = (int) tableModel.getValueAt(selectedRow, 0);
+        String medicineName = (String) tableModel.getValueAt(selectedRow, 1);
+        
+        int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "Are you sure you want to delete: " + medicineName + "?",
+            "Confirm Delete",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE
+        );
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (controller.deleteMedicine(medicineId)) {
+                loadMedicines();
+                JOptionPane.showMessageDialog(this, "Medicine deleted successfully!");
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to delete medicine!");
+            }
+        }
     }
 }
