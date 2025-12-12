@@ -1,5 +1,8 @@
 package com.example;
 
+import com.example.controller.AuthController;
+import com.example.view.LoginFrame;
+import com.example.view.SignupFrame;
 import com.example.view.MainFrame;
 import com.example.utils.DataSeeder;
 import javax.swing.SwingUtilities;
@@ -16,7 +19,16 @@ public class Main {
         
         // Launch GUI on the Event Dispatch Thread
         SwingUtilities.invokeLater(() -> {
-            new MainFrame();
+            AuthController auth = new AuthController();
+            if (auth.isFirstTimeUser()) {
+                // No users yet: show signup directly
+                SignupFrame sf = new SignupFrame(auth, null);
+                sf.setVisible(true);
+            } else {
+                // Show login frame first
+                LoginFrame lf = new LoginFrame(auth);
+                lf.setVisible(true);
+            }
         });
     }
 }
