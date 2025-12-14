@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -231,10 +232,11 @@ public class DatabaseManager {
     public int addReminder(Reminder reminder) {
         String sql = "INSERT INTO reminders(medicine_id, medicine_name, time, reminder_type) VALUES(?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setInt(1, reminder.getMedicineId());
+            // Legacy DB compatibility: we no longer store medicineId/type; write minimal info
+            pstmt.setInt(1, 0);
             pstmt.setString(2, reminder.getMedicineName());
-            pstmt.setString(3, reminder.getTime().toString());
-            pstmt.setString(4, reminder.getReminderType());
+            pstmt.setString(3, reminder.getReminderTime() != null ? reminder.getReminderTime().toString() : "");
+            pstmt.setString(4, reminder.getStatus() != null ? reminder.getStatus().name() : "PENDING");
             pstmt.executeUpdate();
 
             ResultSet keys = pstmt.getGeneratedKeys();
@@ -258,11 +260,14 @@ public class DatabaseManager {
             while (rs.next()) {
                 Reminder r = new Reminder();
                 r.setId(rs.getInt("id"));
-                r.setMedicineId(rs.getInt("medicine_id"));
                 r.setMedicineName(rs.getString("medicine_name"));
-                r.setTime(LocalTime.parse(rs.getString("time")));
-                r.setReminderType(rs.getString("reminder_type"));
-                r.setTaken(rs.getBoolean("taken"));
+                r.setReminderTime(LocalDateTime.parse(rs.getString("time")));
+                String status = rs.getString("reminder_type");
+                try {
+                    r.setStatus(Reminder.Status.valueOf(status));
+                } catch (Exception ex) {
+                    r.setStatus(Reminder.Status.PENDING);
+                }
                 reminders.add(r);
             }
         } catch (SQLException e) {
@@ -283,11 +288,14 @@ public class DatabaseManager {
             while (rs.next()) {
                 Reminder r = new Reminder();
                 r.setId(rs.getInt("id"));
-                r.setMedicineId(rs.getInt("medicine_id"));
                 r.setMedicineName(rs.getString("medicine_name"));
-                r.setTime(LocalTime.parse(rs.getString("time")));
-                r.setReminderType(rs.getString("reminder_type"));
-                r.setTaken(rs.getBoolean("taken"));
+                r.setReminderTime(LocalDateTime.parse(rs.getString("time")));
+                String status = rs.getString("reminder_type");
+                try {
+                    r.setStatus(Reminder.Status.valueOf(status));
+                } catch (Exception ex) {
+                    r.setStatus(Reminder.Status.PENDING);
+                }
                 reminders.add(r);
             }
         } catch (SQLException e) {
@@ -302,11 +310,11 @@ public class DatabaseManager {
     public boolean updateReminder(Reminder reminder) {
         String sql = "UPDATE reminders SET medicine_id = ?, medicine_name = ?, time = ?, reminder_type = ?, taken = ? WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, reminder.getMedicineId());
+            pstmt.setInt(1, 0);
             pstmt.setString(2, reminder.getMedicineName());
-            pstmt.setString(3, reminder.getTime().toString());
-            pstmt.setString(4, reminder.getReminderType());
-            pstmt.setBoolean(5, reminder.isTaken());
+            pstmt.setString(3, reminder.getReminderTime() != null ? reminder.getReminderTime().toString() : "");
+            pstmt.setString(4, reminder.getStatus() != null ? reminder.getStatus().name() : "PENDING");
+            pstmt.setBoolean(5, reminder.getStatus() == Reminder.Status.TAKEN);
             pstmt.setInt(6, reminder.getId());
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {

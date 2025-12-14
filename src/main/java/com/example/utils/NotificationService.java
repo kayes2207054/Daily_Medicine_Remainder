@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +58,7 @@ public class NotificationService {
     public void addReminder(Reminder reminder) {
         if (!reminders.contains(reminder)) {
             reminders.add(reminder);
-            logger.info("Reminder added: " + reminder.getMedicineName() + " at " + reminder.getTime());
+            logger.info("Reminder added: " + reminder.getMedicineName() + " at " + reminder.getReminderTime());
         }
     }
 
@@ -80,9 +81,12 @@ public class NotificationService {
      * Check all reminders and send notifications if time matches
      */
     private void checkAndNotify() {
-        LocalTime currentTime = LocalTime.now();
+        LocalDateTime now = LocalDateTime.now();
         for (Reminder reminder : reminders) {
-            if (!reminder.isTaken() && isReminderTime(reminder.getTime(), currentTime)) {
+            if (reminder.getStatus() == Reminder.Status.PENDING
+                    && reminder.getReminderTime() != null
+                    && !reminder.getReminderTime().isAfter(now)
+                    && isReminderTime(reminder.getReminderTime().toLocalTime(), now.toLocalTime())) {
                 sendNotification(reminder);
             }
         }
@@ -139,7 +143,7 @@ public class NotificationService {
             );
 
             if (result == JOptionPane.YES_OPTION) {
-                reminder.setTaken(true);
+                reminder.setStatus(Reminder.Status.TAKEN);
                 logger.info("Dose marked as taken: " + reminder.getMedicineName());
             }
         });
@@ -195,10 +199,13 @@ public class NotificationService {
      * Get reminders due now
      */
     public List<Reminder> getRemindersduenow() {
-        LocalTime currentTime = LocalTime.now();
+        LocalDateTime now = LocalDateTime.now();
         List<Reminder> dueReminders = new ArrayList<>();
         for (Reminder reminder : reminders) {
-            if (!reminder.isTaken() && isReminderTime(reminder.getTime(), currentTime)) {
+            if (reminder.getStatus() == Reminder.Status.PENDING
+                    && reminder.getReminderTime() != null
+                    && !reminder.getReminderTime().isAfter(now)
+                    && isReminderTime(reminder.getReminderTime().toLocalTime(), now.toLocalTime())) {
                 dueReminders.add(reminder);
             }
         }

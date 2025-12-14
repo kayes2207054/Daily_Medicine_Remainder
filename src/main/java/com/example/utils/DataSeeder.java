@@ -3,6 +3,7 @@ package com.example.utils;
 import com.example.database.DatabaseManager;
 import com.example.model.*;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 /**
@@ -37,14 +38,15 @@ public class DataSeeder {
         int atorvastatinId = dbManager.addMedicine(atorvastatin);
 
         // Sample reminders
-        Reminder reminder1 = new Reminder(aspirinId, "Aspirin", LocalTime.of(9, 0), "morning");
-        Reminder reminder2 = new Reminder(aspirinId, "Aspirin", LocalTime.of(21, 0), "evening");
-        Reminder reminder3 = new Reminder(lisinoprilId, "Lisinopril", LocalTime.of(8, 0), "morning");
-        Reminder reminder4 = new Reminder(metforminId, "Metformin", LocalTime.of(8, 30), "morning");
-        Reminder reminder5 = new Reminder(metforminId, "Metformin", LocalTime.of(13, 30), "noon");
-        Reminder reminder6 = new Reminder(metforminId, "Metformin", LocalTime.of(20, 30), "evening");
-        Reminder reminder7 = new Reminder(omeprazoleId, "Omeprazole", LocalTime.of(7, 0), "morning");
-        Reminder reminder8 = new Reminder(atorvastatinId, "Atorvastatin", LocalTime.of(22, 0), "evening");
+        LocalDate todayDate = LocalDate.now();
+        Reminder reminder1 = new Reminder("Aspirin", LocalDateTime.of(todayDate, LocalTime.of(9, 0)));
+        Reminder reminder2 = new Reminder("Aspirin", LocalDateTime.of(todayDate, LocalTime.of(21, 0)));
+        Reminder reminder3 = new Reminder("Lisinopril", LocalDateTime.of(todayDate, LocalTime.of(8, 0)));
+        Reminder reminder4 = new Reminder("Metformin", LocalDateTime.of(todayDate, LocalTime.of(8, 30)));
+        Reminder reminder5 = new Reminder("Metformin", LocalDateTime.of(todayDate, LocalTime.of(13, 30)));
+        Reminder reminder6 = new Reminder("Metformin", LocalDateTime.of(todayDate, LocalTime.of(20, 30)));
+        Reminder reminder7 = new Reminder("Omeprazole", LocalDateTime.of(todayDate, LocalTime.of(7, 0)));
+        Reminder reminder8 = new Reminder("Atorvastatin", LocalDateTime.of(todayDate, LocalTime.of(22, 0)));
 
         dbManager.addReminder(reminder1);
         dbManager.addReminder(reminder2);

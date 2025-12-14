@@ -1,196 +1,124 @@
 package com.example.controller;
 
-import com.example.database.DatabaseManager;
 import com.example.model.Reminder;
+import com.example.model.Reminder.Status;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
- * ReminderController Class
- * Handles all business logic for reminder operations.
- * Manages reminder scheduling and notifications.
+ * ReminderController manages in-memory reminders and exposes operations
+ * for the UI and background reminder service.
  */
 public class ReminderController {
     private static final Logger logger = LoggerFactory.getLogger(ReminderController.class);
-    private DatabaseManager dbManager;
-    private List<Reminder> reminders;
+    private final List<Reminder> reminders = Collections.synchronizedList(new ArrayList<>());
+    private final AtomicInteger idGenerator = new AtomicInteger(1);
 
     public ReminderController() {
-        this.dbManager = DatabaseManager.getInstance();
-        this.reminders = new ArrayList<>();
-        loadReminders();
+        // starts empty; can be extended to load from storage later
     }
 
-    /**
-     * Load all reminders from database
-     */
-    public void loadReminders() {
-        this.reminders = dbManager.getAllReminders();
-        logger.info("Loaded " + reminders.size() + " reminders from database");
-    }
-
-    /**
-     * Add new reminder
-     */
-    public int addReminder(Reminder reminder) {
-        if (reminder == null || reminder.getMedicineName() == null) {
+    public Reminder addReminder(Reminder reminder) {
+        if (reminder == null || reminder.getMedicineName() == null || reminder.getReminderTime() == null) {
             logger.warn("Cannot add invalid reminder");
-            return -1;
+            return null;
         }
-
-        int id = dbManager.addReminder(reminder);
-        if (id > 0) {
-            reminder.setId(id);
-            reminders.add(reminder);
-            logger.info("Reminder added for: " + reminder.getMedicineName() + " at " + reminder.getTime());
-        }
-        return id;
+        reminder.setId(idGenerator.getAndIncrement());
+        reminder.setStatus(Status.PENDING);
+        reminders.add(reminder);
+        logger.info("Reminder added: {} at {}", reminder.getMedicineName(), reminder.getReminderTime());
+        return reminder;
     }
 
-    /**
-     * Update reminder
-     */
-    public boolean updateReminder(Reminder reminder) {
-        if (reminder == null || reminder.getId() <= 0) {
-            logger.warn("Invalid reminder for update");
-            return false;
+    public boolean deleteReminder(int reminderId) {
+        boolean removed = reminders.removeIf(r -> r.getId() == reminderId);
+        if (removed) {
+            logger.info("Reminder deleted: {}", reminderId);
         }
+        return removed;
+    }
 
-        boolean success = dbManager.updateReminder(reminder);
-        if (success) {
+    public boolean updateReminder(Reminder reminder) {
+        if (reminder == null || reminder.getId() <= 0) return false;
+        synchronized (reminders) {
             for (int i = 0; i < reminders.size(); i++) {
                 if (reminders.get(i).getId() == reminder.getId()) {
                     reminders.set(i, reminder);
-                    break;
+                    return true;
                 }
-            }
-            logger.info("Reminder updated for: " + reminder.getMedicineName());
-        }
-        return success;
-    }
-
-    /**
-     * Delete reminder by ID
-     */
-    public boolean deleteReminder(int reminderId) {
-        boolean success = dbManager.deleteReminder(reminderId);
-        if (success) {
-            reminders.removeIf(r -> r.getId() == reminderId);
-            logger.info("Reminder deleted with ID: " + reminderId);
-        }
-        return success;
-    }
-
-    /**
-     * Get all reminders
-     */
-    public List<Reminder> getAllReminders() {
-        return new ArrayList<>(reminders);
-    }
-
-    /**
-     * Get reminders by medicine ID
-     */
-    public List<Reminder> getRemindersByMedicineId(int medicineId) {
-        return reminders.stream()
-                .filter(r -> r.getMedicineId() == medicineId)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get reminders by medicine name
-     */
-    public List<Reminder> getRemindersByMedicineName(String medicineName) {
-        return reminders.stream()
-                .filter(r -> r.getMedicineName().equalsIgnoreCase(medicineName))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get pending reminders (not taken today)
-     */
-    public List<Reminder> getPendingReminders() {
-        return reminders.stream()
-                .filter(r -> !r.isTaken())
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get reminders due at specific time
-     */
-    public List<Reminder> getRemindersDueAt(LocalTime time) {
-        return reminders.stream()
-                .filter(r -> r.getTime().equals(time) && !r.isTaken())
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Mark reminder as taken
-     */
-    public boolean markAsTaken(int reminderId) {
-        for (Reminder reminder : reminders) {
-            if (reminder.getId() == reminderId) {
-                reminder.setTaken(true);
-                return updateReminder(reminder);
             }
         }
         return false;
     }
 
-    /**
-     * Get reminder by ID
-     */
-    public Reminder getReminderById(int reminderId) {
-        return reminders.stream()
-                .filter(r -> r.getId() == reminderId)
-                .findFirst()
-                .orElse(null);
-    }
-
-    /**
-     * Reset all reminders (mark as not taken for new day)
-     */
-    public void resetAllReminders() {
-        for (Reminder reminder : reminders) {
-            reminder.setTaken(false);
-            updateReminder(reminder);
+    public List<Reminder> getAllReminders() {
+        synchronized (reminders) {
+            return new ArrayList<>(reminders);
         }
-        logger.info("All reminders reset for new day");
     }
 
-    /**
-     * Get reminders sorted by time
-     */
-    public List<Reminder> getRemindersSortedByTime() {
-        return reminders.stream()
-                .sorted((r1, r2) -> r1.getTime().compareTo(r2.getTime()))
-                .collect(Collectors.toList());
+    public Reminder getReminderById(int reminderId) {
+        synchronized (reminders) {
+            return reminders.stream().filter(r -> r.getId() == reminderId).findFirst().orElse(null);
+        }
     }
 
-    /**
-     * Get total number of reminders
-     */
-    public int getTotalReminders() {
-        return reminders.size();
+    public List<Reminder> getPendingReminders() {
+        synchronized (reminders) {
+            return reminders.stream()
+                    .filter(r -> r.getStatus() == Status.PENDING)
+                    .collect(Collectors.toList());
+        }
     }
 
-    /**
-     * Get total pending reminders
-     */
+    public List<Reminder> getDueReminders(LocalDateTime now) {
+        synchronized (reminders) {
+            return reminders.stream()
+                    .filter(r -> r.getStatus() == Status.PENDING && !r.getReminderTime().isAfter(now))
+                    .collect(Collectors.toList());
+        }
+    }
+
+    public void markTaken(int reminderId) {
+        Reminder r = getReminderById(reminderId);
+        if (r != null) {
+            r.setStatus(Status.TAKEN);
+            updateReminder(r);
+        }
+    }
+
+    public void markMissed(int reminderId) {
+        Reminder r = getReminderById(reminderId);
+        if (r != null) {
+            r.setStatus(Status.MISSED);
+            updateReminder(r);
+        }
+    }
+
+    public void snooze(int reminderId, int minutes) {
+        Reminder r = getReminderById(reminderId);
+        if (r != null) {
+            r.setReminderTime(r.getReminderTime().plusMinutes(minutes));
+            r.setStatus(Status.PENDING);
+            updateReminder(r);
+        }
+    }
+
     public int getPendingCount() {
-        return (int) reminders.stream().filter(r -> !r.isTaken()).count();
+        return getPendingReminders().size();
     }
 
-    /**
-     * Refresh reminders from database
-     */
-    public void refresh() {
-        loadReminders();
-        logger.info("Reminder list refreshed");
+    public List<Reminder> getRemindersSortedByTime() {
+        return getAllReminders().stream()
+                .sorted(Comparator.comparing(Reminder::getReminderTime))
+                .collect(Collectors.toList());
     }
 }

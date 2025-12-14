@@ -3,6 +3,7 @@ package com.example.view;
 import com.example.controller.*;
 import com.example.database.DatabaseManager;
 import com.example.utils.NotificationService;
+import com.example.service.ReminderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,8 @@ public class MainFrame extends JFrame {
     // Services
     private DatabaseManager dbManager;
     private NotificationService notificationService;
+    private ReminderService reminderService;
+    private LiveClockPanel liveClockPanel;
 
     public MainFrame() {
         setTitle("DailyDose - Your Personal Medicine Companion");
@@ -58,11 +61,15 @@ public class MainFrame extends JFrame {
         reminderController = new ReminderController();
         inventoryController = new InventoryController();
         historyController = new HistoryController();
+        reminderService = new ReminderService(reminderController);
 
         // Create UI components
         createSideMenu();
         createContentArea();
         createStatusBar();
+
+        // Start background reminder checks
+        reminderService.start();
 
         // Add window listener for graceful shutdown
         addWindowListener(new WindowAdapter() {
@@ -99,7 +106,13 @@ public class MainFrame extends JFrame {
         subtitleLabel.setFont(new Font("Arial", Font.ITALIC, 11));
         subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         sideMenuPanel.add(subtitleLabel);
-        sideMenuPanel.add(Box.createRigidArea(new Dimension(0, 40)));
+        sideMenuPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        
+        // Add live clock
+        liveClockPanel = new LiveClockPanel();
+        liveClockPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        sideMenuPanel.add(liveClockPanel);
+        sideMenuPanel.add(Box.createRigidArea(new Dimension(0, 20)));
         
         // Menu buttons
         addMenuButton("Home");
@@ -171,7 +184,7 @@ public class MainFrame extends JFrame {
         // Initialize all panels
         homePanel = createHomePanel();
         medicinePanel = new MedicinePanel(medicineController);
-        reminderPanel = new ReminderPanel(reminderController, medicineController);
+        reminderPanel = new ReminderPanel(reminderController);
         inventoryPanel = new InventoryPanel(inventoryController, medicineController);
         historyPanel = new HistoryPanel(historyController);
         
@@ -372,6 +385,12 @@ public class MainFrame extends JFrame {
      */
     private void onApplicationClose() {
         logger.info("Closing DailyDose Application");
+        if (reminderService != null) {
+            reminderService.stop();
+        }
+        if (liveClockPanel != null) {
+            liveClockPanel.stopClock();
+        }
         notificationService.stopScheduler();
         dbManager.disconnect();
         System.exit(0);
