@@ -1,6 +1,8 @@
 package com.example.view;
 
+import com.example.controller.InventoryController;
 import com.example.controller.MedicineController;
+import com.example.model.Inventory;
 import com.example.model.Medicine;
 
 import javax.swing.*;
@@ -10,11 +12,13 @@ import java.util.List;
 
 public class MedicinePanel extends JPanel {
     private MedicineController controller;
+    private InventoryController inventoryController;
     private JTable medicineTable;
     private DefaultTableModel tableModel;
 
-    public MedicinePanel(MedicineController controller) {
+    public MedicinePanel(MedicineController controller, InventoryController inventoryController) {
         this.controller = controller;
+        this.inventoryController = inventoryController;
         setLayout(new BorderLayout());
         
         // Title
@@ -83,7 +87,11 @@ public class MedicinePanel extends JPanel {
             
             if (!name.isEmpty()) {
                 Medicine medicine = new Medicine(name, dosage, frequency, instructions);
-                controller.addMedicine(medicine);
+                int id = controller.addMedicine(medicine);
+                if (id > 0 && inventoryController != null) {
+                    Inventory inv = new Inventory(id, name, 30, 10, 1);
+                    inventoryController.addInventory(inv);
+                }
                 loadMedicines();
                 dialog.dispose();
             } else {

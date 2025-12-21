@@ -2,7 +2,6 @@ package com.example.view;
 
 import com.example.controller.*;
 import com.example.database.DatabaseManager;
-import com.example.utils.NotificationService;
 import com.example.service.ReminderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +38,6 @@ public class MainFrame extends JFrame {
     
     // Services
     private DatabaseManager dbManager;
-    private NotificationService notificationService;
     private ReminderService reminderService;
     private LiveClockPanel liveClockPanel;
 
@@ -54,13 +52,13 @@ public class MainFrame extends JFrame {
 
         // Initialize database and services
         dbManager = DatabaseManager.getInstance();
-        notificationService = new NotificationService();
-        
         // Initialize controllers
         medicineController = new MedicineController();
         reminderController = new ReminderController();
         inventoryController = new InventoryController();
         historyController = new HistoryController();
+        reminderController.setInventoryController(inventoryController);
+        reminderController.setHistoryController(historyController);
         reminderService = new ReminderService(reminderController);
 
         // Create UI components
@@ -183,7 +181,7 @@ public class MainFrame extends JFrame {
         
         // Initialize all panels
         homePanel = createHomePanel();
-        medicinePanel = new MedicinePanel(medicineController);
+        medicinePanel = new MedicinePanel(medicineController, inventoryController);
         reminderPanel = new ReminderPanel(reminderController);
         inventoryPanel = new InventoryPanel(inventoryController, medicineController);
         historyPanel = new HistoryPanel(historyController);
@@ -391,8 +389,9 @@ public class MainFrame extends JFrame {
         if (liveClockPanel != null) {
             liveClockPanel.stopClock();
         }
-        notificationService.stopScheduler();
-        dbManager.disconnect();
+        if (dbManager != null) {
+            dbManager.disconnect();
+        }
         System.exit(0);
     }
 
@@ -401,12 +400,5 @@ public class MainFrame extends JFrame {
      */
     public DatabaseManager getDatabaseManager() {
         return dbManager;
-    }
-
-    /**
-     * Get notification service
-     */
-    public NotificationService getNotificationService() {
-        return notificationService;
     }
 }

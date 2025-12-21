@@ -261,7 +261,7 @@ public class DatabaseManager {
                 Reminder r = new Reminder();
                 r.setId(rs.getInt("id"));
                 r.setMedicineName(rs.getString("medicine_name"));
-                r.setReminderTime(LocalDateTime.parse(rs.getString("time")));
+                r.setReminderTime(parseReminderDateTime(rs.getString("time")));
                 String status = rs.getString("reminder_type");
                 try {
                     r.setStatus(Reminder.Status.valueOf(status));
@@ -289,7 +289,7 @@ public class DatabaseManager {
                 Reminder r = new Reminder();
                 r.setId(rs.getInt("id"));
                 r.setMedicineName(rs.getString("medicine_name"));
-                r.setReminderTime(LocalDateTime.parse(rs.getString("time")));
+                r.setReminderTime(parseReminderDateTime(rs.getString("time")));
                 String status = rs.getString("reminder_type");
                 try {
                     r.setStatus(Reminder.Status.valueOf(status));
@@ -302,6 +302,25 @@ public class DatabaseManager {
             logger.error("Error retrieving reminders by medicine id", e);
         }
         return reminders;
+    }
+
+    /**
+     * Parse reminder time stored as either full LocalDateTime ISO string or HH:mm legacy time.
+     */
+    private LocalDateTime parseReminderDateTime(String value) {
+        if (value == null || value.isEmpty()) {
+            return LocalDateTime.now();
+        }
+        try {
+            if (value.length() <= 5 && !value.contains("T")) {
+                // Legacy format like "07:00" -> assume today at that time
+                return LocalDate.now().atTime(java.time.LocalTime.parse(value));
+            }
+            return LocalDateTime.parse(value);
+        } catch (Exception ex) {
+            logger.warn("Failed to parse reminder time '{}', defaulting to now", value, ex);
+            return LocalDateTime.now();
+        }
     }
 
     /**
