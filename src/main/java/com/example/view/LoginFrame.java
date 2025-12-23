@@ -11,6 +11,7 @@ import java.awt.geom.RoundRectangle2D;
 
 public class LoginFrame extends JFrame {
     private final AuthController authController;
+    private JLabel errorLabel;
 
     public LoginFrame(AuthController authController) {
         super("DailyDose - Login");
@@ -80,20 +81,38 @@ public class LoginFrame extends JFrame {
         gbc.gridy = 3;
         formPanel.add(passField, gbc);
 
-        GradientButton loginBtn = new GradientButton("Login");
+        // Inline error message label
+        errorLabel = new JLabel("");
+        errorLabel.setForeground(new Color(220, 80, 80));
+        errorLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         gbc.gridy = 4;
+        gbc.insets = new Insets(5, 0, 0, 0);
+        formPanel.add(errorLabel, gbc);
+
+        GradientButton loginBtn = new GradientButton("Login");
+        gbc.gridy = 5;
         gbc.insets = new Insets(20, 0, 10, 0);
         formPanel.add(loginBtn, gbc);
 
         loginBtn.addActionListener(e -> {
             String username = userField.getText();
             String password = new String(passField.getPassword());
-            if (authController.login(username, password)) {
+            boolean ok = authController.login(username, password);
+            if (ok) {
+                // Clear any previous error on success
+                errorLabel.setText("");
                 SwingUtilities.invokeLater(() -> {
                     MainFrame mf = new MainFrame();
                     mf.setVisible(true);
                 });
                 dispose();
+            } else {
+                // Show immediate, user-friendly error message
+                String msg = authController.getLastError();
+                if (msg == null || msg.trim().isEmpty()) {
+                    msg = "Invalid username or password.";
+                }
+                errorLabel.setText(msg);
             }
         });
 
@@ -101,7 +120,7 @@ public class LoginFrame extends JFrame {
         signupLabel.setForeground(new Color(150, 200, 255));
         signupLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
         signupLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        gbc.gridy = 5;
+        gbc.gridy = 6;
         gbc.insets = new Insets(10, 0, 0, 0);
         formPanel.add(signupLabel, gbc);
 

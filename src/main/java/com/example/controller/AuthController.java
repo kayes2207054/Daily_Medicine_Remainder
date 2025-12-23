@@ -7,6 +7,7 @@ import javax.swing.*;
 
 public class AuthController {
     private final UserDatabase userDb = new UserDatabase();
+    private String lastError;
 
     public boolean isFirstTimeUser() {
         return !userDb.hasAnyUser();
@@ -39,20 +40,32 @@ public class AuthController {
     }
 
     public boolean login(String username, String password) {
-        if (username == null || password == null) {
-            JOptionPane.showMessageDialog(null, "Invalid username or password.");
+        lastError = null;
+        if (username == null || username.trim().isEmpty()) {
+            lastError = "Username required";
             return false;
         }
+        if (password == null || password.length() == 0) {
+            lastError = "Password required";
+            return false;
+        }
+
         User u = userDb.getUser(username.trim());
         if (u == null) {
-            JOptionPane.showMessageDialog(null, "Invalid username or password.");
+            lastError = "User not found";
             return false;
         }
+
         String hash = UserDatabase.sha256(password);
         if (hash != null && hash.equals(u.getPasswordHash())) {
             return true;
         }
-        JOptionPane.showMessageDialog(null, "Invalid username or password.");
+
+        lastError = "Invalid password";
         return false;
+    }
+
+    public String getLastError() {
+        return lastError;
     }
 }
