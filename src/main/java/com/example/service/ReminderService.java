@@ -8,6 +8,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -22,6 +23,7 @@ public class ReminderService {
     private ScheduledExecutorService scheduler;
     private int snoozeMinutes = 5;
     private int missAfterMinutes = 10;
+    private List<Integer> alertedReminderIds = new ArrayList<>();
 
     public ReminderService(ReminderController controller) {
         this.controller = controller;
@@ -42,8 +44,19 @@ public class ReminderService {
     private void checkReminders() {
         LocalDateTime now = LocalDateTime.now();
         List<Reminder> due = controller.getDueReminders(now);
+        
+        // Clean up alerted list for reminders that are no longer pending
+        alertedReminderIds.removeIf(id -> {
+            Reminder r = controller.getReminderById(id);
+            return r == null || r.getStatus() != Status.PENDING;
+        });
+        
+        // Only show alert for reminders we haven't alerted yet
         for (Reminder r : due) {
-            SwingUtilities.invokeLater(() -> showAlarmDialog(r));
+            if (!alertedReminderIds.contains(r.getId())) {
+                alertedReminderIds.add(r.getId());
+                SwingUtilities.invokeLater(() -> showAlarmDialog(r));
+            }
         }
     }
 

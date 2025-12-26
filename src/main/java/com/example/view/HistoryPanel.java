@@ -2,6 +2,7 @@ package com.example.view;
 
 import com.example.controller.HistoryController;
 import com.example.model.DoseHistory;
+import com.example.utils.FileUtils;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -9,6 +10,7 @@ import java.awt.*;
 import java.util.List;
 
 public class HistoryPanel extends JPanel {
+    // Incremental Progress: 70% → 80%
     private HistoryController controller;
     private JTable historyTable;
     private DefaultTableModel tableModel;
@@ -57,6 +59,11 @@ public class HistoryPanel extends JPanel {
         pendingBtn.setBackground(new Color(241, 196, 15));
         pendingBtn.setForeground(Color.WHITE);
         pendingBtn.addActionListener(e -> markAsPending());
+
+        // Export CSV (basic: exports all history)
+        JButton exportBtn = new JButton("Export CSV");
+        exportBtn.addActionListener(e -> exportAllHistory());
+        // TODO: Export only filtered view (Today/Week/Month) and by medicine.
         
         buttonPanel.add(todayBtn);
         buttonPanel.add(weekBtn);
@@ -66,6 +73,8 @@ public class HistoryPanel extends JPanel {
         buttonPanel.add(takenBtn);
         buttonPanel.add(missedBtn);
         buttonPanel.add(pendingBtn);
+        buttonPanel.add(new JSeparator(SwingConstants.VERTICAL));
+        buttonPanel.add(exportBtn);
         add(buttonPanel, BorderLayout.SOUTH);
     }
 
@@ -74,6 +83,16 @@ public class HistoryPanel extends JPanel {
         List<DoseHistory> histories = controller.getAllHistory();
         for (DoseHistory h : histories) {
             tableModel.addRow(new Object[]{h.getId(), h.getMedicineName(), h.getDate(), h.getTime(), h.getStatus()});
+        }
+    }
+
+    private void exportAllHistory() {
+        List<DoseHistory> histories = controller.getAllHistory();
+        String path = FileUtils.exportHistoryToCSV(histories, "history_export");
+        if (path != null) {
+            JOptionPane.showMessageDialog(this, "Exported to: " + path, "CSV Export", JOptionPane.INFORMATION_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(this, "Export failed.", "CSV Export", JOptionPane.ERROR_MESSAGE);
         }
     }
 

@@ -21,10 +21,12 @@ public class NotificationService {
     private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
     private Timer scheduler;
     private List<Reminder> reminders;
+    private List<Integer> notifiedReminderIds;  // Track already notified reminders
     private static final int CHECK_INTERVAL_MS = 60000;  // Check every minute
 
     public NotificationService() {
         this.reminders = new ArrayList<>();
+        this.notifiedReminderIds = new ArrayList<>();
         this.scheduler = new Timer("ReminderScheduler", true);
         startScheduler();
     }
@@ -82,14 +84,34 @@ public class NotificationService {
      */
     private void checkAndNotify() {
         LocalDateTime now = LocalDateTime.now();
+        // Clean up notified list for reminders that are no longer pending
+        notifiedReminderIds.removeIf(id -> {
+            Reminder r = findReminderById(id);
+            return r == null || r.getStatus() != Reminder.Status.PENDING;
+        });
+        
         for (Reminder reminder : reminders) {
             if (reminder.getStatus() == Reminder.Status.PENDING
                     && reminder.getReminderTime() != null
                     && !reminder.getReminderTime().isAfter(now)
+                    && !notifiedReminderIds.contains(reminder.getId())
                     && isReminderTime(reminder.getReminderTime().toLocalTime(), now.toLocalTime())) {
+                notifiedReminderIds.add(reminder.getId());
                 sendNotification(reminder);
             }
         }
+    }
+    
+    /**
+     * Find reminder by ID
+     */
+    private Reminder findReminderById(int id) {
+        for (Reminder r : reminders) {
+            if (r.getId() == id) {
+                return r;
+            }
+        }
+        return null;
     }
 
     /**

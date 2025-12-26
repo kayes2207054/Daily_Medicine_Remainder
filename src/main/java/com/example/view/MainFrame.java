@@ -18,6 +18,7 @@ import java.awt.event.WindowEvent;
  * Integrates all controllers and views.
  */
 public class MainFrame extends JFrame {
+    // Incremental Progress: 60% → 70%
     private static final Logger logger = LoggerFactory.getLogger(MainFrame.class);
     private JPanel sideMenuPanel;
     private JPanel contentPanel;
@@ -359,10 +360,55 @@ public class MainFrame extends JFrame {
      * Show settings dialog
      */
     private void showSettings() {
-        JOptionPane.showMessageDialog(this, 
-                "Settings feature coming soon!", 
-                "Settings", 
-                JOptionPane.INFORMATION_MESSAGE);
+        // Basic settings placeholder dialog (single option).
+        // TODO: Persist preferences and load on startup.
+        // TODO: Add more settings (sounds, snooze, missed-after, 12/24h default).
+        JDialog dialog = new JDialog(this, "Settings", true);
+        dialog.setLayout(new GridBagLayout());
+        dialog.setSize(360, 180);
+        dialog.setLocationRelativeTo(this);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 12, 8, 12);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.gridx = 0; gbc.gridy = 0;
+
+        JLabel title = new JLabel("Basic Settings (Temporary)");
+        title.setFont(new Font("Arial", Font.BOLD, 14));
+        dialog.add(title, gbc);
+
+        gbc.gridy++;
+        JCheckBox chk24 = new JCheckBox("Use 24-hour time");
+        // Reflect the current clock state or stored setting
+        boolean current24 = (liveClockPanel != null) ? liveClockPanel.isUse24HourFormat() : com.example.utils.AppSettings.getUse24Hour();
+        chk24.setSelected(current24);
+        dialog.add(chk24, gbc);
+
+        gbc.gridy++;
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton save = new JButton("Save");
+        JButton cancel = new JButton("Cancel");
+        buttons.add(save);
+        buttons.add(cancel);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        dialog.add(buttons, gbc);
+
+        save.addActionListener(e -> {
+            try {
+                if (liveClockPanel != null) {
+                    liveClockPanel.setUse24HourFormat(chk24.isSelected());
+                }
+                // Persist the preference for future runs
+                com.example.utils.AppSettings.setUse24Hour(chk24.isSelected());
+                updateStatusBar("Settings saved");
+                dialog.dispose();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog, "Failed to apply settings", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        cancel.addActionListener(e -> dialog.dispose());
+        dialog.setVisible(true);
     }
 
     /**
