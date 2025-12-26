@@ -124,6 +124,10 @@ public class MainFrame extends JFrame {
         
         // Bottom buttons
         sideMenuPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+        JButton logoutButton = createMenuButton("Logout");
+        logoutButton.addActionListener(e -> handleLogout());
+        sideMenuPanel.add(logoutButton);
+
         JButton settingsButton = createMenuButton("Settings");
         settingsButton.addActionListener(e -> showSettings());
         sideMenuPanel.add(settingsButton);
@@ -439,6 +443,23 @@ public class MainFrame extends JFrame {
             dbManager.disconnect();
         }
         System.exit(0);
+    }
+
+    /**
+     * Handle logout and return to login screen without exiting the app.
+     */
+    private void handleLogout() {
+        if (reminderService != null) {
+            reminderService.stop();
+        }
+        if (liveClockPanel != null) {
+            liveClockPanel.stopClock();
+        }
+        if (dbManager != null) {
+            dbManager.disconnect();
+        }
+        dispose();
+        SwingUtilities.invokeLater(() -> new LoginFrame(new AuthController()).setVisible(true));
     }
 
     /**

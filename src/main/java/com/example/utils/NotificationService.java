@@ -16,7 +16,9 @@ import java.util.TimerTask;
  * NotificationService Class
  * Manages reminder notifications and scheduling.
  * Handles desktop notifications and reminder scheduling.
+ * @deprecated Replaced by ReminderService (ScheduledExecutor + EDT marshaling). Keep for reference only.
  */
+@Deprecated
 public class NotificationService {
     private static final Logger logger = LoggerFactory.getLogger(NotificationService.class);
     private Timer scheduler;

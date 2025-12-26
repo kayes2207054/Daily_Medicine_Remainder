@@ -110,6 +110,15 @@ public class ReminderPanel extends JPanel {
     private void deleteSelected() {
         int row = reminderTable.getSelectedRow();
         if (row < 0) { JOptionPane.showMessageDialog(this, "Select a reminder first"); return; }
+        int ok = JOptionPane.showConfirmDialog(
+                this,
+                "Delete this reminder?",
+                "Confirm",
+                JOptionPane.YES_NO_OPTION
+        );
+        if (ok != JOptionPane.YES_OPTION) {
+            return;
+        }
         int id = (int) tableModel.getValueAt(row, 0);
         controller.deleteReminder(id);
         loadReminders();

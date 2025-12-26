@@ -32,7 +32,7 @@ public class HistoryPanel extends JPanel {
         JScrollPane scrollPane = new JScrollPane(historyTable);
         add(scrollPane, BorderLayout.CENTER);
         
-        loadHistory();
+        loadHistoryAsync();
         
         // Button panel with filter options
         JPanel buttonPanel = new JPanel();
@@ -43,7 +43,7 @@ public class HistoryPanel extends JPanel {
         JButton monthBtn = new JButton("This Month");
         monthBtn.addActionListener(e -> showMonthHistory());
         JButton allBtn = new JButton("All");
-        allBtn.addActionListener(e -> loadHistory());
+        allBtn.addActionListener(e -> loadHistoryAsync());
         
         JButton takenBtn = new JButton("✓ Mark as Taken");
         takenBtn.setBackground(new Color(46, 204, 113));
@@ -78,9 +78,32 @@ public class HistoryPanel extends JPanel {
         add(buttonPanel, BorderLayout.SOUTH);
     }
 
-    private void loadHistory() {
+    private void loadHistoryAsync() {
+        new SwingWorker<List<DoseHistory>, Void>() {
+            @Override
+            protected List<DoseHistory> doInBackground() {
+                return controller.getAllHistory();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<DoseHistory> histories = get();
+                    renderHistory(histories);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(
+                            HistoryPanel.this,
+                            "Failed to load history",
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+                }
+            }
+        }.execute();
+    }
+
+    private void renderHistory(List<DoseHistory> histories) {
         tableModel.setRowCount(0);
-        List<DoseHistory> histories = controller.getAllHistory();
         for (DoseHistory h : histories) {
             tableModel.addRow(new Object[]{h.getId(), h.getMedicineName(), h.getDate(), h.getTime(), h.getStatus()});
         }
@@ -105,7 +128,7 @@ public class HistoryPanel extends JPanel {
         
         int historyId = (int) tableModel.getValueAt(selectedRow, 0);
         if (controller.markDoseAsTaken(historyId)) {
-            loadHistory();
+            loadHistoryAsync();
             JOptionPane.showMessageDialog(this, "Dose marked as TAKEN!");
         } else {
             JOptionPane.showMessageDialog(this, "Failed to update dose status!");
@@ -121,7 +144,7 @@ public class HistoryPanel extends JPanel {
         
         int historyId = (int) tableModel.getValueAt(selectedRow, 0);
         if (controller.markDoseAsMissed(historyId)) {
-            loadHistory();
+            loadHistoryAsync();
             JOptionPane.showMessageDialog(this, "Dose marked as MISSED!");
         } else {
             JOptionPane.showMessageDialog(this, "Failed to update dose status!");
@@ -137,7 +160,7 @@ public class HistoryPanel extends JPanel {
         
         int historyId = (int) tableModel.getValueAt(selectedRow, 0);
         if (controller.markDoseAsPending(historyId)) {
-            loadHistory();
+            loadHistoryAsync();
             JOptionPane.showMessageDialog(this, "Dose marked as PENDING!");
         } else {
             JOptionPane.showMessageDialog(this, "Failed to update dose status!");
