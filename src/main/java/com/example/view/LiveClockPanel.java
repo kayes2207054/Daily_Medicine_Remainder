@@ -4,100 +4,133 @@ import javax.swing.*;
 import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import com.example.utils.AppSettings;
 
 /**
  * LiveClockPanel - Real-time digital clock component
- * Displays current system time updated every second.
+ * 
+ * Features:
+ * - Shows current system time (HH:mm:ss)
+ * - Updates every 1 second automatically
+ * - Modern purple gradient design
+ * - Auto-starts when created
+ * - Uses javax.swing.Timer for thread-safe updates
  */
 public class LiveClockPanel extends JPanel {
-    // Incremental Progress: 60% → 70%
     private JLabel timeLabel;
     private JLabel dateLabel;
-    private Timer timer;
-    private DateTimeFormatter timeFormatter;
-    private DateTimeFormatter dateFormatter;
-    private boolean use24HourFormat = true; // default to 24h
-
+    private Timer clockTimer;
+    
+    // Time formatters
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    
+    /**
+     * Constructor - Creates and starts the live clock
+     */
     public LiveClockPanel() {
-        // Initialize format from persisted setting
-        use24HourFormat = AppSettings.getUse24Hour();
-        timeFormatter = DateTimeFormatter.ofPattern(use24HourFormat ? "HH:mm:ss" : "hh:mm:ss a");
-        dateFormatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        
+        initComponents();
+        startClock();
+    }
+    
+    /**
+     * Initialize UI components
+     */
+    private void initComponents() {
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setBackground(new Color(45, 45, 60));
+        setOpaque(false);
+        setPreferredSize(new Dimension(200, 80));
         setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
         
-        // Time label
-        timeLabel = new JLabel();
+        // Time label (HH:mm:ss)
+        timeLabel = new JLabel("00:00:00");
         timeLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        timeLabel.setForeground(new Color(200, 150, 255));
+        timeLabel.setForeground(Color.WHITE);
         timeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        timeLabel.setToolTipText("Current time");
-        
-        // Date label
-        dateLabel = new JLabel();
-        dateLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        dateLabel.setForeground(new Color(180, 180, 200));
-        dateLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        dateLabel.setToolTipText("Current date");
-        
         add(timeLabel);
-        add(Box.createRigidArea(new Dimension(0, 5)));
+        
+        add(Box.createVerticalStrut(5));
+        
+        // Date label (dd-MM-yyyy)
+        dateLabel = new JLabel("01-01-2026");
+        dateLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        dateLabel.setForeground(new Color(200, 200, 220));
+        dateLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         add(dateLabel);
         
-        // Update clock immediately
+        // Update immediately with current time
         updateClock();
-        
-        // Start timer to update every second
-        timer = new Timer(1000, e -> updateClock());
-        timer.start();
     }
-
+    
     /**
-     * Update clock labels with current time
+     * Start the clock timer
+     * Updates every 1 second (1000 ms)
+     */
+    private void startClock() {
+        // Stop any existing timer
+        stopClock();
+        
+        // Create new timer that fires every 1000ms (1 second)
+        clockTimer = new Timer(1000, e -> updateClock());
+        clockTimer.setInitialDelay(0); // Start immediately
+        clockTimer.start();
+    }
+    
+    /**
+     * Stop the clock timer
+     * Call this when panel is removed or app closes
+     */
+    public void stopClock() {
+        if (clockTimer != null && clockTimer.isRunning()) {
+            clockTimer.stop();
+        }
+    }
+    
+    /**
+     * Update clock display with current system time
+     * Called every second by the timer
      */
     private void updateClock() {
         LocalDateTime now = LocalDateTime.now();
-        timeLabel.setText(now.format(timeFormatter));
-        dateLabel.setText(now.format(dateFormatter));
+        
+        // Format and update time label
+        String timeText = now.format(TIME_FORMAT);
+        timeLabel.setText(timeText);
+        
+        // Format and update date label
+        String dateText = now.format(DATE_FORMAT);
+        dateLabel.setText(dateText);
     }
-
+    
     /**
-     * Stop the clock timer (call when panel is no longer needed)
-     */
-    public void stopClock() {
-        if (timer != null && timer.isRunning()) {
-            timer.stop();
-        }
-    }
-
-    /**
-     * Toggle between 12-hour and 24-hour display.
-     * Basic, non-persistent preference. Call from settings later.
-     * TODO: Bind to a Settings UI and persist user preference.
-     */
-    public void setUse24HourFormat(boolean use24) {
-        this.use24HourFormat = use24;
-        this.timeFormatter = DateTimeFormatter.ofPattern(use24 ? "HH:mm:ss" : "hh:mm:ss a");
-        // TODO: Consider adding timezone display and colon blink effect.
-        updateClock();
-    }
-
-    /**
-     * Current clock format preference (12/24h).
-     * TODO: Consolidate via a shared settings model.
-     */
-    public boolean isUse24HourFormat() {
-        return use24HourFormat;
-    }
-
-    /**
-     * Get preferred size for layout managers
+     * Custom paint for rounded background
      */
     @Override
-    public Dimension getPreferredSize() {
-        return new Dimension(200, 80);
+    protected void paintComponent(Graphics g) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        
+        // Draw rounded background with gradient
+        GradientPaint gp = new GradientPaint(
+            0, 0, new Color(88, 86, 214, 100),
+            0, getHeight(), new Color(108, 106, 234, 100)
+        );
+        g2.setPaint(gp);
+        g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+        
+        // Draw border
+        g2.setColor(new Color(255, 255, 255, 30));
+        g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 15, 15);
+        
+        g2.dispose();
+        super.paintComponent(g);
+    }
+    
+    /**
+     * Cleanup when panel is removed
+     */
+    @Override
+    public void removeNotify() {
+        stopClock();
+        super.removeNotify();
     }
 }

@@ -2,7 +2,6 @@ package com.example.view;
 
 import com.example.controller.HistoryController;
 import com.example.model.DoseHistory;
-import com.example.utils.FileUtils;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -10,184 +9,91 @@ import java.awt.*;
 import java.util.List;
 
 public class HistoryPanel extends JPanel {
-    // Incremental Progress: 70% → 80%
-    private HistoryController controller;
-    private JTable historyTable;
+    private final HistoryController controller;
+    private JTable table;
     private DefaultTableModel tableModel;
 
     public HistoryPanel(HistoryController controller) {
         this.controller = controller;
         setLayout(new BorderLayout());
+        initComponents();
+        refreshTable();
+    }
+
+    private void initComponents() {
+        setOpaque(false);
         
-        // Title
-        JLabel titleLabel = new JLabel("Dose History & Reports", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
-        add(titleLabel, BorderLayout.NORTH);
+        // Top panel
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
+        topPanel.setOpaque(false);
         
-        // Table
+        JButton refreshButton = createModernButton("🔄 Refresh", new Color(52, 152, 219), new Color(41, 128, 185));
+        refreshButton.addActionListener(e -> refreshTable());
+        topPanel.add(refreshButton);
+        
+        add(topPanel, BorderLayout.NORTH);
+
+        // Table with modern styling
         String[] columns = {"ID", "Medicine", "Date", "Time", "Status"};
-        tableModel = new DefaultTableModel(columns, 0);
-        historyTable = new JTable(tableModel);
-        JScrollPane scrollPane = new JScrollPane(historyTable);
+        tableModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        table = new JTable(tableModel);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setRowHeight(30);
+        table.setBackground(new Color(50, 50, 70));
+        table.setForeground(Color.WHITE);
+        table.setSelectionBackground(new Color(88, 86, 214));
+        table.setSelectionForeground(Color.WHITE);
+        table.setGridColor(new Color(70, 70, 90));
+        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        table.getTableHeader().setBackground(new Color(58, 56, 144));
+        table.getTableHeader().setForeground(Color.WHITE);
+        
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(0, 15, 15, 15));
+        scrollPane.getViewport().setBackground(new Color(35, 35, 48));
         add(scrollPane, BorderLayout.CENTER);
-        
-        loadHistoryAsync();
-        
-        // Button panel with filter options
-        JPanel buttonPanel = new JPanel();
-        JButton todayBtn = new JButton("Today");
-        todayBtn.addActionListener(e -> showTodayHistory());
-        JButton weekBtn = new JButton("This Week");
-        weekBtn.addActionListener(e -> showWeekHistory());
-        JButton monthBtn = new JButton("This Month");
-        monthBtn.addActionListener(e -> showMonthHistory());
-        JButton allBtn = new JButton("All");
-        allBtn.addActionListener(e -> loadHistoryAsync());
-        
-        JButton takenBtn = new JButton("✓ Mark as Taken");
-        takenBtn.setBackground(new Color(46, 204, 113));
-        takenBtn.setForeground(Color.WHITE);
-        takenBtn.addActionListener(e -> markAsTaken());
-        
-        JButton missedBtn = new JButton("✗ Mark as Missed");
-        missedBtn.setBackground(new Color(231, 76, 60));
-        missedBtn.setForeground(Color.WHITE);
-        missedBtn.addActionListener(e -> markAsMissed());
-        
-        JButton pendingBtn = new JButton("? Mark as Pending");
-        pendingBtn.setBackground(new Color(241, 196, 15));
-        pendingBtn.setForeground(Color.WHITE);
-        pendingBtn.addActionListener(e -> markAsPending());
-
-        // Export CSV (basic: exports all history)
-        JButton exportBtn = new JButton("Export CSV");
-        exportBtn.addActionListener(e -> exportAllHistory());
-        // TODO: Export only filtered view (Today/Week/Month) and by medicine.
-        
-        buttonPanel.add(todayBtn);
-        buttonPanel.add(weekBtn);
-        buttonPanel.add(monthBtn);
-        buttonPanel.add(allBtn);
-        buttonPanel.add(new JSeparator(SwingConstants.VERTICAL));
-        buttonPanel.add(takenBtn);
-        buttonPanel.add(missedBtn);
-        buttonPanel.add(pendingBtn);
-        buttonPanel.add(new JSeparator(SwingConstants.VERTICAL));
-        buttonPanel.add(exportBtn);
-        add(buttonPanel, BorderLayout.SOUTH);
     }
-
-    private void loadHistoryAsync() {
-        new SwingWorker<List<DoseHistory>, Void>() {
+    
+    private JButton createModernButton(String text, Color color1, Color color2) {
+        JButton button = new JButton(text) {
             @Override
-            protected List<DoseHistory> doInBackground() {
-                return controller.getAllHistory();
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                GradientPaint gp = new GradientPaint(0, 0, color1, 0, getHeight(), color2);
+                g2.setPaint(gp);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.dispose();
+                super.paintComponent(g);
             }
-
-            @Override
-            protected void done() {
-                try {
-                    List<DoseHistory> histories = get();
-                    renderHistory(histories);
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(
-                            HistoryPanel.this,
-                            "Failed to load history",
-                            "Error",
-                            JOptionPane.ERROR_MESSAGE
-                    );
-                }
-            }
-        }.execute();
+        };
+        button.setForeground(Color.WHITE);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setPreferredSize(new Dimension(120, 38));
+        return button;
     }
 
-    private void renderHistory(List<DoseHistory> histories) {
+    private void refreshTable() {
         tableModel.setRowCount(0);
-        for (DoseHistory h : histories) {
-            tableModel.addRow(new Object[]{h.getId(), h.getMedicineName(), h.getDate(), h.getTime(), h.getStatus()});
-        }
-    }
-
-    private void exportAllHistory() {
-        List<DoseHistory> histories = controller.getAllHistory();
-        String path = FileUtils.exportHistoryToCSV(histories, "history_export");
-        if (path != null) {
-            JOptionPane.showMessageDialog(this, "Exported to: " + path, "CSV Export", JOptionPane.INFORMATION_MESSAGE);
-        } else {
-            JOptionPane.showMessageDialog(this, "Export failed.", "CSV Export", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void markAsTaken() {
-        int selectedRow = historyTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a dose history record!");
-            return;
-        }
-        
-        int historyId = (int) tableModel.getValueAt(selectedRow, 0);
-        if (controller.markDoseAsTaken(historyId)) {
-            loadHistoryAsync();
-            JOptionPane.showMessageDialog(this, "Dose marked as TAKEN!");
-        } else {
-            JOptionPane.showMessageDialog(this, "Failed to update dose status!");
-        }
-    }
-
-    private void markAsMissed() {
-        int selectedRow = historyTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a dose history record!");
-            return;
-        }
-        
-        int historyId = (int) tableModel.getValueAt(selectedRow, 0);
-        if (controller.markDoseAsMissed(historyId)) {
-            loadHistoryAsync();
-            JOptionPane.showMessageDialog(this, "Dose marked as MISSED!");
-        } else {
-            JOptionPane.showMessageDialog(this, "Failed to update dose status!");
-        }
-    }
-
-    private void markAsPending() {
-        int selectedRow = historyTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a dose history record!");
-            return;
-        }
-        
-        int historyId = (int) tableModel.getValueAt(selectedRow, 0);
-        if (controller.markDoseAsPending(historyId)) {
-            loadHistoryAsync();
-            JOptionPane.showMessageDialog(this, "Dose marked as PENDING!");
-        } else {
-            JOptionPane.showMessageDialog(this, "Failed to update dose status!");
-        }
-    }
-
-    private void showTodayHistory() {
-        tableModel.setRowCount(0);
-        List<DoseHistory> histories = controller.getTodayHistory();
-        for (DoseHistory h : histories) {
-            tableModel.addRow(new Object[]{h.getId(), h.getMedicineName(), h.getDate(), h.getTime(), h.getStatus()});
-        }
-    }
-
-    private void showWeekHistory() {
-        tableModel.setRowCount(0);
-        List<DoseHistory> histories = controller.getThisWeekHistory();
-        for (DoseHistory h : histories) {
-            tableModel.addRow(new Object[]{h.getId(), h.getMedicineName(), h.getDate(), h.getTime(), h.getStatus()});
-        }
-    }
-
-    private void showMonthHistory() {
-        tableModel.setRowCount(0);
-        List<DoseHistory> histories = controller.getThisMonthHistory();
-        for (DoseHistory h : histories) {
-            tableModel.addRow(new Object[]{h.getId(), h.getMedicineName(), h.getDate(), h.getTime(), h.getStatus()});
+        List<DoseHistory> history = controller.getAllHistory();
+        for (DoseHistory h : history) {
+            tableModel.addRow(new Object[]{
+                h.getId(),
+                h.getMedicineName(),
+                h.getDate(),
+                h.getTime(),
+                h.getStatus()
+            });
         }
     }
 }

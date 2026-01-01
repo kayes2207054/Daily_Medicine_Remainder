@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Main (Swing)" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.example.Main" />
+    <module name="Daily_Medicine_Remainder" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

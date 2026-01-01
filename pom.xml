@@ -14,6 +14,8 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <javafx.version>17.0.2</javafx.version>
+        <javafx.maven.plugin.version>0.0.8</javafx.maven.plugin.version>
     </properties>
 
     <dependencies>
@@ -76,12 +78,22 @@
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-controls</artifactId>
-            <version>17.0.2</version>
+            <version>${javafx.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
             <artifactId>javafx-fxml</artifactId>
-            <version>17.0.2</version>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-graphics</artifactId>
+            <version>${javafx.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-base</artifactId>
+            <version>${javafx.version}</version>
         </dependency>
     </dependencies>
 
@@ -115,6 +127,17 @@
                 <version>3.3.0</version>
                 <configuration>
                     <mainClass>com.example.MainApp</mainClass>
+                    <arguments/>
+                    <additionalBuildclasspathElements>
+                        <additionalBuildclasspathElement>${settings.localRepository}/org/openjfx/javafx-controls/17.0.2/javafx-controls-17.0.2.jar</additionalBuildclasspathElement>
+                        <additionalBuildclasspathElement>${settings.localRepository}/org/openjfx/javafx-controls/17.0.2/javafx-controls-17.0.2-win.jar</additionalBuildclasspathElement>
+                        <additionalBuildclasspathElement>${settings.localRepository}/org/openjfx/javafx-graphics/17.0.2/javafx-graphics-17.0.2.jar</additionalBuildclasspathElement>
+                        <additionalBuildclasspathElement>${settings.localRepository}/org/openjfx/javafx-graphics/17.0.2/javafx-graphics-17.0.2-win.jar</additionalBuildclasspathElement>
+                        <additionalBuildclasspathElement>${settings.localRepository}/org/openjfx/javafx-base/17.0.2/javafx-base-17.0.2.jar</additionalBuildclasspathElement>
+                        <additionalBuildclasspathElement>${settings.localRepository}/org/openjfx/javafx-base/17.0.2/javafx-base-17.0.2-win.jar</additionalBuildclasspathElement>
+                        <additionalBuildclasspathElement>${settings.localRepository}/org/openjfx/javafx-fxml/17.0.2/javafx-fxml-17.0.2.jar</additionalBuildclasspathElement>
+                        <additionalBuildclasspathElement>${settings.localRepository}/org/openjfx/javafx-fxml/17.0.2/javafx-fxml-17.0.2-win.jar</additionalBuildclasspathElement>
+                    </additionalBuildclasspathElements>
                 </configuration>
             </plugin>
             <!-- Build an executable fat JAR with dependencies -->
@@ -148,12 +171,9 @@
             <plugin>
                 <groupId>org.openjfx</groupId>
                 <artifactId>javafx-maven-plugin</artifactId>
-                <version>0.0.8</version>
+                <version>${javafx.maven.plugin.version}</version>
                 <configuration>
                     <mainClass>com.example.MainApp</mainClass>
-                    <launcher>DailyDoseFX</launcher>
-                    <executable>java</executable>
-                    <args/>
                 </configuration>
             </plugin>
         </plugins>

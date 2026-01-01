@@ -1,34 +1,35 @@
 package com.example;
 
-import com.example.controller.AuthController;
 import com.example.view.LoginFrame;
-import com.example.view.SignupFrame;
-import com.example.view.MainFrame;
 import com.example.utils.DataSeeder;
-import javax.swing.SwingUtilities;
+
+import javax.swing.*;
 
 /**
- * Main Class
- * Entry point for the DailyDose application.
- * Initializes the database and launches the GUI.
+ * Main entry point for Swing version of DailyDose
+ * Legacy entry point - kept for compatibility
  */
 public class Main {
     public static void main(String[] args) {
-        // Seed sample data if first run
+        // Seed sample data
         DataSeeder.seedSampleData();
         
-        // Launch GUI on the Event Dispatch Thread
-        SwingUtilities.invokeLater(() -> {
-            AuthController auth = new AuthController();
-            if (auth.isFirstTimeUser()) {
-                // No users yet: show signup directly
-                SignupFrame sf = new SignupFrame(auth, null);
-                sf.setVisible(true);
-            } else {
-                // Show login frame first
-                LoginFrame lf = new LoginFrame(auth);
-                lf.setVisible(true);
+        // Set Nimbus Look and Feel
+        try {
+            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+                if ("Nimbus".equals(info.getName())) {
+                    UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
             }
+        } catch (Exception e) {
+            // If Nimbus is not available, fall back to default
+        }
+        
+        // Launch Swing UI
+        SwingUtilities.invokeLater(() -> {
+            LoginFrame loginFrame = new LoginFrame();
+            loginFrame.setVisible(true);
         });
     }
 }

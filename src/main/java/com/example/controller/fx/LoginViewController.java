@@ -11,6 +11,7 @@ import javafx.stage.Stage;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,8 +48,11 @@ public class LoginViewController {
     public void initialize() {
         logger.info("LoginViewController initialized");
         
-        // TODO: Add Enter key listener on password field to trigger login
-        // TODO: Set focus on username field
+        // Enter key on password field triggers login
+        passwordField.setOnAction(e -> handleLogin(new ActionEvent()));
+        
+        // Set focus on username field when view loads
+        javafx.application.Platform.runLater(() -> usernameField.requestFocus());
     }
     
     /**
@@ -107,12 +111,67 @@ public class LoginViewController {
     private void handleSignup(ActionEvent event) {
         logger.info("Signup button clicked");
         
-        // TODO Phase 3: Load SignupView.fxml
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle("Sign Up");
-        alert.setHeaderText(null);
-        alert.setContentText("Sign up screen coming in Phase 3.\n\nFor now, use the Swing version to create an account.");
-        alert.showAndWait();
+        // Create signup dialog
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Create New Account");
+        dialog.setHeaderText("Sign Up for DailyDose");
+        
+        // Create form fields
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+        
+        TextField nameField = new TextField();
+        nameField.setPromptText("Full Name");
+        TextField newUsernameField = new TextField();
+        newUsernameField.setPromptText("Username");
+        PasswordField newPasswordField = new PasswordField();
+        newPasswordField.setPromptText("Password");
+        PasswordField confirmPasswordField = new PasswordField();
+        confirmPasswordField.setPromptText("Confirm Password");
+        
+        grid.add(new Label("Name:"), 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(new Label("Username:"), 0, 1);
+        grid.add(newUsernameField, 1, 1);
+        grid.add(new Label("Password:"), 0, 2);
+        grid.add(newPasswordField, 1, 2);
+        grid.add(new Label("Confirm:"), 0, 3);
+        grid.add(confirmPasswordField, 1, 3);
+        
+        dialog.getDialogPane().setContent(grid);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        
+        dialog.showAndWait().ifPresent(response -> {
+            if (response == ButtonType.OK) {
+                String name = nameField.getText().trim();
+                String username = newUsernameField.getText().trim();
+                String password = newPasswordField.getText();
+                String confirm = confirmPasswordField.getText();
+                
+                if (name.isEmpty() || username.isEmpty() || password.isEmpty()) {
+                    showError("All fields are required");
+                    return;
+                }
+                
+                if (!password.equals(confirm)) {
+                    showError("Passwords do not match");
+                    return;
+                }
+                
+                boolean success = authController.signup(name, username, password);
+                if (success) {
+                    Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
+                    successAlert.setTitle("Success");
+                    successAlert.setHeaderText(null);
+                    successAlert.setContentText("Account created successfully! Please login.");
+                    successAlert.showAndWait();
+                } else {
+                    showError(authController.getLastError());
+                }
+            }
+        });
     }
     
     /**

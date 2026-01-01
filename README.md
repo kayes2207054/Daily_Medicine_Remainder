@@ -32,7 +32,7 @@ A comprehensive Java desktop application for managing daily medicines, setting r
 - Notes for missed doses
 
 ### 5. User Interface
-- Clean, intuitive Swing-based GUI
+- Clean, intuitive JavaFX + FXML UI
 - Responsive navigation with CardLayout
 - Statistics dashboard on home screen
 - Dialog-based forms for data entry
@@ -57,7 +57,7 @@ A comprehensive Java desktop application for managing daily medicines, setting r
 ```
 Daily_Medicine_Remainder/
 ├── src/main/java/com/example/
-│   ├── Main.java                    # Application entry point
+│   ├── MainApp.java                 # Application entry point (JavaFX)
 │   ├── controller/
 │   │   ├── MedicineController.java  # Medicine CRUD operations
 │   │   ├── ReminderController.java  # Reminder management
@@ -90,7 +90,7 @@ Daily_Medicine_Remainder/
 
 ### MVC Pattern
 - **Model**: Domain objects (Medicine, Reminder, Inventory, DoseHistory)
-- **View**: Swing panels for UI (MainFrame, MedicinePanel, ReminderPanel, InventoryPanel, HistoryPanel)
+- **View**: JavaFX FXML views and controllers (LoginView, MainDashboard, MedicineView, ReminderView, InventoryView, HistoryView)
 - **Controller**: Business logic controllers managing data flow and operations
 
 ### Database Design
@@ -224,5 +224,5 @@ For issues or questions, please refer to the code comments and documentation.
 **Version**: 1.0-SNAPSHOT  
 **Last Updated**: December 2025  
 **Language**: Java 11+  
-**GUI Framework**: Swing  
+**GUI Framework**: JavaFX (FXML)  
 **Database**: SQLite

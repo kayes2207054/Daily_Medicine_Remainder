@@ -44,6 +44,7 @@ public class InventoryViewController {
         items.setAll(inventoryController.getAllInventory());
         inventoryTable.setItems(items);
         setStatus("ইনভেন্টরি লোড হয়েছে");
+        showAlerts();
     }
 
     @FXML private void handleAdd() {
@@ -153,4 +154,44 @@ public class InventoryViewController {
     private void setStatus(String text) { if (status != null) status.setText(text); }
     private void error(String msg) { new Alert(Alert.AlertType.ERROR, msg, ButtonType.OK).showAndWait(); }
     private void info(String msg) { new Alert(Alert.AlertType.INFORMATION, msg, ButtonType.OK).showAndWait(); }
+
+    /**
+     * Show low-stock and refill-soon alerts so user can act quickly.
+     */
+    private void showAlerts() {
+        if (inventoryController == null) return;
+
+        List<Inventory> low = inventoryController.getLowStockItems();
+        List<Inventory> soon = inventoryController.getItemsNeedingRefillSoon();
+
+        StringBuilder sb = new StringBuilder();
+        if (!low.isEmpty()) {
+            sb.append("লো স্টক: \n");
+            low.forEach(inv -> sb.append("• ")
+                    .append(inv.getMedicineName())
+                    .append(" (পরিমাণ ")
+                    .append(inv.getQuantity())
+                    .append("/থ্রেশহোল্ড ")
+                    .append(inv.getThreshold())
+                    .append(")\n"));
+            sb.append("\n");
+        }
+
+        if (!soon.isEmpty()) {
+            sb.append("রিফিল শীঘ্র: \n");
+            soon.forEach(inv -> sb.append("• ")
+                    .append(inv.getMedicineName())
+                    .append(" (রিফিল তারিখ ")
+                    .append(inv.getEstimatedRefillDate() != null ? inv.getEstimatedRefillDate().format(DATE_FMT) : "—")
+                    .append(")\n"));
+        }
+
+        if (sb.length() > 0) {
+            Alert alert = new Alert(Alert.AlertType.WARNING);
+            alert.setTitle("ইনভেন্টরি সতর্কতা");
+            alert.setHeaderText("দ্রুত রিফিল প্রয়োজন");
+            alert.setContentText(sb.toString());
+            alert.show();
+        }
+    }
 }

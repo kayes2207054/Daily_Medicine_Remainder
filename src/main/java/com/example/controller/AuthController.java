@@ -3,40 +3,45 @@ package com.example.controller;
 import com.example.database.UserDatabase;
 import com.example.model.User;
 
-import javax.swing.*;
-
 public class AuthController {
     private final UserDatabase userDb = new UserDatabase();
     private String lastError;
+    private static User currentUser;
 
     public boolean isFirstTimeUser() {
         return !userDb.hasAnyUser();
     }
 
     public boolean register(String username, String password, String confirmPassword) {
+        lastError = null;
         if (username == null || username.trim().length() < 3) {
-            JOptionPane.showMessageDialog(null, "Username must be at least 3 characters.");
+            lastError = "Username must be at least 3 characters.";
             return false;
         }
         if (password == null || password.length() < 6) {
-            JOptionPane.showMessageDialog(null, "Password must be at least 6 characters.");
+            lastError = "Password must be at least 6 characters.";
             return false;
         }
         if (!password.equals(confirmPassword)) {
-            JOptionPane.showMessageDialog(null, "Confirm password must match.");
+            lastError = "Confirm password must match.";
             return false;
         }
         if (userDb.userExists(username)) {
-            JOptionPane.showMessageDialog(null, "Username already exists.");
+            lastError = "Username already exists.";
             return false;
         }
         String hash = UserDatabase.sha256(password);
         User u = new User(username.trim(), hash);
         boolean ok = userDb.saveUser(u);
         if (!ok) {
-            JOptionPane.showMessageDialog(null, "Failed to save user.");
+            lastError = "Failed to save user.";
         }
         return ok;
+    }
+
+    public boolean signup(String name, String username, String password) {
+        // Simplified signup for JavaFX (name parameter ignored for now)
+        return register(username, password, password);
     }
 
     public boolean login(String username, String password) {
@@ -58,6 +63,7 @@ public class AuthController {
 
         String hash = UserDatabase.sha256(password);
         if (hash != null && hash.equals(u.getPasswordHash())) {
+            currentUser = u;
             return true;
         }
 
@@ -67,5 +73,9 @@ public class AuthController {
 
     public String getLastError() {
         return lastError;
+    }
+
+    public static User getCurrentUser() {
+        return currentUser;
     }
 }

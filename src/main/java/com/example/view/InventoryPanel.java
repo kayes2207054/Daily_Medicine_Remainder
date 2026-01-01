@@ -1,9 +1,7 @@
 package com.example.view;
 
 import com.example.controller.InventoryController;
-import com.example.controller.MedicineController;
 import com.example.model.Inventory;
-import com.example.model.Medicine;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -11,144 +9,90 @@ import java.awt.*;
 import java.util.List;
 
 public class InventoryPanel extends JPanel {
-    private InventoryController controller;
-    private MedicineController medicineController;
-    private JTable inventoryTable;
+    private final InventoryController controller;
+    private JTable table;
     private DefaultTableModel tableModel;
 
-    public InventoryPanel(InventoryController controller, MedicineController medicineController) {
+    public InventoryPanel(InventoryController controller) {
         this.controller = controller;
-        this.medicineController = medicineController;
         setLayout(new BorderLayout());
+        initComponents();
+        refreshTable();
+    }
+
+    private void initComponents() {
+        setOpaque(false);
         
-        // Title
-        JLabel titleLabel = new JLabel("Inventory Management", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
-        titleLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
-        add(titleLabel, BorderLayout.NORTH);
+        // Top panel
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
+        topPanel.setOpaque(false);
         
-        // Table
-        String[] columns = {"ID", "Medicine", "Quantity", "Threshold", "Status"};
-        tableModel = new DefaultTableModel(columns, 0);
-        inventoryTable = new JTable(tableModel);
-        JScrollPane scrollPane = new JScrollPane(inventoryTable);
+        JButton refreshButton = createModernButton("🔄 Refresh", new Color(52, 152, 219), new Color(41, 128, 185));
+        refreshButton.addActionListener(e -> refreshTable());
+        topPanel.add(refreshButton);
+        
+        add(topPanel, BorderLayout.NORTH);
+
+        // Table with modern styling
+        String[] columns = {"Medicine ID", "Medicine Name", "Quantity", "Threshold"};
+        tableModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        table = new JTable(tableModel);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setRowHeight(30);
+        table.setBackground(new Color(50, 50, 70));
+        table.setForeground(Color.WHITE);
+        table.setSelectionBackground(new Color(88, 86, 214));
+        table.setSelectionForeground(Color.WHITE);
+        table.setGridColor(new Color(70, 70, 90));
+        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        table.getTableHeader().setBackground(new Color(58, 56, 144));
+        table.getTableHeader().setForeground(Color.WHITE);
+        
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(0, 15, 15, 15));
+        scrollPane.getViewport().setBackground(new Color(35, 35, 48));
         add(scrollPane, BorderLayout.CENTER);
-        
-        loadInventory();
-        
-        // Button panel
-        JPanel buttonPanel = new JPanel();
-        JButton addButton = new JButton("Add Item");
-        addButton.addActionListener(e -> showAddDialog());
-        JButton updateButton = new JButton("Update Quantity");
-        updateButton.addActionListener(e -> showUpdateDialog());
-        buttonPanel.add(addButton);
-        buttonPanel.add(updateButton);
-        add(buttonPanel, BorderLayout.SOUTH);
+    }
+    
+    private JButton createModernButton(String text, Color color1, Color color2) {
+        JButton button = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                GradientPaint gp = new GradientPaint(0, 0, color1, 0, getHeight(), color2);
+                g2.setPaint(gp);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        button.setForeground(Color.WHITE);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setPreferredSize(new Dimension(120, 38));
+        return button;
     }
 
-    private void loadInventory() {
+    private void refreshTable() {
         tableModel.setRowCount(0);
-        List<Inventory> items = controller.getAllInventory();
-        for (Inventory item : items) {
-            String status = item.isLowStock() ? "LOW STOCK" : "OK";
-            tableModel.addRow(new Object[]{item.getId(), item.getMedicineName(), item.getQuantity(), item.getThreshold(), status});
+        List<Inventory> inventory = controller.getAllInventory();
+        for (Inventory inv : inventory) {
+            tableModel.addRow(new Object[]{
+                inv.getMedicineId(),
+                inv.getMedicineName(),
+                inv.getQuantity(),
+                inv.getThreshold()
+            });
         }
-    }
-
-    private void showAddDialog() {
-        JDialog dialog = new JDialog();
-        dialog.setTitle("Add Inventory Item");
-        dialog.setSize(400, 250);
-        dialog.setLayout(new GridLayout(4, 2, 10, 10));
-        dialog.setLocationRelativeTo(this);
-        
-        JLabel medicineLabel = new JLabel("Medicine:");
-        List<Medicine> medicines = medicineController.getAllMedicines();
-        String[] medicineNames = medicines.stream().map(Medicine::getName).toArray(String[]::new);
-        JComboBox<String> medicineCombo = new JComboBox<>(medicineNames);
-        
-        JLabel quantityLabel = new JLabel("Quantity:");
-        JTextField quantityField = new JTextField();
-        
-        JLabel thresholdLabel = new JLabel("Low Stock Threshold:");
-        JTextField thresholdField = new JTextField("10");
-        
-        JButton saveButton = new JButton("Save");
-        saveButton.addActionListener(e -> {
-            String medicineName = (String) medicineCombo.getSelectedItem();
-            String quantityStr = quantityField.getText();
-            String thresholdStr = thresholdField.getText();
-            
-            if (medicineName != null && !quantityStr.isEmpty() && !thresholdStr.isEmpty()) {
-                try {
-                    int quantity = Integer.parseInt(quantityStr);
-                    int threshold = Integer.parseInt(thresholdStr);
-                    Medicine med = medicineController.getMedicineByName(medicineName);
-                    Inventory item = new Inventory(med.getId(), medicineName, quantity, threshold, 1);
-                    controller.addInventory(item);
-                    loadInventory();
-                    dialog.dispose();
-                } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(dialog, "Please enter valid numbers!");
-                }
-            } else {
-                JOptionPane.showMessageDialog(dialog, "Please fill all fields!");
-            }
-        });
-        
-        JButton cancelButton = new JButton("Cancel");
-        cancelButton.addActionListener(e -> dialog.dispose());
-        
-        dialog.add(medicineLabel);
-        dialog.add(medicineCombo);
-        dialog.add(quantityLabel);
-        dialog.add(quantityField);
-        dialog.add(thresholdLabel);
-        dialog.add(thresholdField);
-        dialog.add(saveButton);
-        dialog.add(cancelButton);
-        
-        dialog.setVisible(true);
-    }
-
-    private void showUpdateDialog() {
-        int selectedRow = inventoryTable.getSelectedRow();
-        if (selectedRow < 0) {
-            JOptionPane.showMessageDialog(this, "Please select an item to update!");
-            return;
-        }
-        
-        JDialog dialog = new JDialog();
-        dialog.setTitle("Update Quantity");
-        dialog.setSize(300, 150);
-        dialog.setLayout(new GridLayout(2, 2, 10, 10));
-        dialog.setLocationRelativeTo(this);
-        
-        JLabel quantityLabel = new JLabel("New Quantity:");
-        JTextField quantityField = new JTextField();
-        
-        JButton saveButton = new JButton("Update");
-        saveButton.addActionListener(e -> {
-            try {
-                int newQuantity = Integer.parseInt(quantityField.getText());
-                int id = (int) tableModel.getValueAt(selectedRow, 0);
-                controller.refillMedicine(id, newQuantity);
-                loadInventory();
-                dialog.dispose();
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(dialog, "Please enter a valid number!");
-            }
-        });
-        
-        JButton cancelButton = new JButton("Cancel");
-        cancelButton.addActionListener(e -> dialog.dispose());
-        
-        dialog.add(quantityLabel);
-        dialog.add(quantityField);
-        dialog.add(saveButton);
-        dialog.add(cancelButton);
-        
-        dialog.setVisible(true);
     }
 }

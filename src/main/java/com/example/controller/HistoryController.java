@@ -161,8 +161,8 @@ public class HistoryController {
     /**
      * Count doses taken today
      */
-    public long getTakenTodayCount() {
-        return getTodayHistory().stream()
+    public int getTakenTodayCount() {
+        return (int) getTodayHistory().stream()
                 .filter(h -> DoseHistory.STATUS_TAKEN.equals(h.getStatus()))
                 .count();
     }
@@ -170,10 +170,19 @@ public class HistoryController {
     /**
      * Count doses missed today
      */
-    public long getMissedTodayCount() {
-        return getTodayHistory().stream()
+    public int getMissedTodayCount() {
+        return (int) getTodayHistory().stream()
                 .filter(h -> DoseHistory.STATUS_MISSED.equals(h.getStatus()))
                 .count();
+    }
+
+    /**
+     * Get recent history for last N days
+     */
+    public List<DoseHistory> getRecentHistory(int days) {
+        LocalDate startDate = LocalDate.now().minusDays(days);
+        LocalDate endDate = LocalDate.now();
+        return getHistoryByDateRange(startDate, endDate);
     }
 
     /**

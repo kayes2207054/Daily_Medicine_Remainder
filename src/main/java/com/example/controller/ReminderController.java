@@ -10,13 +10,25 @@ import com.example.controller.HistoryController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.Toolkit;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import javax.swing.SwingUtilities;
+import javax.swing.JOptionPane;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JButton;
+import javax.swing.JPanel;
+import javax.swing.BorderFactory;
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Color;
+import java.awt.Frame;
+import java.awt.Dimension;
 
 /**
  * ReminderController manages in-memory reminders and exposes operations
@@ -29,10 +41,16 @@ public class ReminderController {
     private final DatabaseManager dbManager;
     private InventoryController inventoryController;
     private HistoryController historyController;
+    // Basic alarm timer (student-level): checks every second and beeps until user acknowledges
+    private Timer alarmTimer;
+    private final Set<Integer> alarmingReminderIds = Collections.synchronizedSet(new HashSet<>());
+    private static final DateTimeFormatter DISPLAY_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public ReminderController() {
         this.dbManager = DatabaseManager.getInstance();
         loadFromDatabase();
+        // Start a simple alarm checker
+        startBasicAlarmTimer();
     }
 
     private void loadFromDatabase() {
@@ -50,6 +68,226 @@ public class ReminderController {
 
     public void setHistoryController(HistoryController historyController) {
         this.historyController = historyController;
+    }
+
+    /**
+     * Start a very basic alarm timer.
+     * Checks every second; when current time matches reminder (hour+minute), plays beeps and shows an OK dialog.
+     * TODO: Improve alarm handling
+     * TODO: Add snooze feature
+     */
+    public void startBasicAlarmTimer() {
+        stopBasicAlarmTimer();
+        alarmTimer = new Timer("DailyDoseAlarmTimer", true);
+        alarmTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    checkAndTriggerAlarms();
+                } catch (Exception ignored) {}
+            }
+        }, 0, 1000);
+        logger.info("Basic alarm timer started");
+    }
+
+    /** Stop the basic alarm timer if running. */
+    public void stopBasicAlarmTimer() {
+        if (alarmTimer != null) {
+            alarmTimer.cancel();
+            alarmTimer = null;
+            logger.info("Basic alarm timer stopped");
+        }
+    }
+
+    /** Shutdown all resources when app closes (stops alarm timer and any pending beeps). */
+    public void shutdown() {
+        logger.info("ReminderController shutting down...");
+        stopBasicAlarmTimer();
+        alarmingReminderIds.clear();
+    }
+
+    private void checkAndTriggerAlarms() {
+        LocalDateTime now = LocalDateTime.now();
+        // Cleanup alarms for reminders no longer matching this minute or no longer pending
+        alarmingReminderIds.removeIf(id -> {
+            Reminder r = getReminderById(id);
+            return r == null || r.getStatus() != Status.PENDING || !sameMinute(r.getReminderTime(), now);
+        });
+
+        List<Reminder> due;
+        synchronized (reminders) {
+            due = reminders.stream()
+                    .filter(r -> r.getStatus() == Status.PENDING && r.getReminderTime() != null && sameMinute(r.getReminderTime(), now))
+                    .collect(Collectors.toList());
+        }
+
+        for (Reminder r : due) {
+            if (!alarmingReminderIds.contains(r.getId())) {
+                alarmingReminderIds.add(r.getId());
+                triggerAlarm(r);
+            }
+        }
+    }
+
+    private boolean sameMinute(LocalDateTime a, LocalDateTime b) {
+        return a.getYear() == b.getYear() && a.getDayOfYear() == b.getDayOfYear()
+                && a.getHour() == b.getHour() && a.getMinute() == b.getMinute();
+    }
+
+    private void triggerAlarm(Reminder reminder) {
+        // Repeat beep until user clicks a button (TAKEN, MISS, or STOP)
+        Timer beepTimer = new Timer("DailyDoseAlarmBeep", true);
+        beepTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    Toolkit.getDefaultToolkit().beep();
+                } catch (Exception ignored) {}
+            }
+        }, 0, 1500);
+
+        SwingUtilities.invokeLater(() -> {
+            try {
+                // Create modern alarm dialog
+                JDialog alarmDialog = new JDialog((Frame) null, "⏰ MEDICINE REMINDER", true);
+                alarmDialog.setAlwaysOnTop(true);
+                alarmDialog.setSize(450, 250);
+                alarmDialog.setLocationRelativeTo(null);
+                alarmDialog.setLayout(new BorderLayout(15, 15));
+                alarmDialog.getContentPane().setBackground(new Color(58, 56, 144));
+                
+                // Info panel
+                JPanel infoPanel = new JPanel();
+                infoPanel.setLayout(new javax.swing.BoxLayout(infoPanel, javax.swing.BoxLayout.Y_AXIS));
+                infoPanel.setOpaque(false);
+                infoPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 10, 20));
+                
+                JLabel titleLabel = new JLabel("⏰ TIME TO TAKE YOUR MEDICINE!");
+                titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+                titleLabel.setForeground(Color.WHITE);
+                titleLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
+                infoPanel.add(titleLabel);
+                
+                infoPanel.add(javax.swing.Box.createVerticalStrut(15));
+                
+                JLabel medLabel = new JLabel("Medicine: " + reminder.getMedicineName());
+                medLabel.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+                medLabel.setForeground(new Color(220, 220, 235));
+                medLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
+                infoPanel.add(medLabel);
+                
+                String timeStr = reminder.getReminderTime() != null ? 
+                    reminder.getReminderTime().format(DISPLAY_FMT) : "now";
+                JLabel timeLabel = new JLabel("Time: " + timeStr);
+                timeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+                timeLabel.setForeground(new Color(200, 200, 220));
+                timeLabel.setAlignmentX(JLabel.CENTER_ALIGNMENT);
+                infoPanel.add(timeLabel);
+                
+                alarmDialog.add(infoPanel, BorderLayout.CENTER);
+                
+                // Button panel
+                JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+                buttonPanel.setOpaque(false);
+                buttonPanel.setBorder(BorderFactory.createEmptyBorder(0, 10, 15, 10));
+                
+                JButton takenBtn = createAlarmButton("✓ TAKEN", new Color(46, 204, 113), new Color(39, 174, 96));
+                JButton missBtn = createAlarmButton("✗ MISS", new Color(231, 76, 60), new Color(192, 57, 43));
+                JButton snoozeBtn = createAlarmButton("⏰ SNOOZE 5m", new Color(241, 196, 15), new Color(243, 156, 18));
+                
+                takenBtn.addActionListener(e -> {
+                    handleAlarmAction(reminder, "TAKEN", beepTimer);
+                    alarmDialog.dispose();
+                });
+                
+                missBtn.addActionListener(e -> {
+                    handleAlarmAction(reminder, "MISS", beepTimer);
+                    alarmDialog.dispose();
+                });
+                
+                snoozeBtn.addActionListener(e -> {
+                    handleAlarmAction(reminder, "SNOOZE", beepTimer);
+                    alarmDialog.dispose();
+                });
+                
+                buttonPanel.add(takenBtn);
+                buttonPanel.add(snoozeBtn);
+                buttonPanel.add(missBtn);
+                
+                alarmDialog.add(buttonPanel, BorderLayout.SOUTH);
+                alarmDialog.setVisible(true);
+                
+            } catch (Exception ex) {
+                // Fallback to simple dialog
+                beepTimer.cancel();
+                int result = JOptionPane.showConfirmDialog(null,
+                    "TIME TO TAKE: " + reminder.getMedicineName() + "\nTime: " + 
+                    (reminder.getReminderTime() != null ? reminder.getReminderTime().format(DISPLAY_FMT) : "now"),
+                    "⏰ MEDICINE REMINDER",
+                    JOptionPane.YES_NO_OPTION);
+                if (result == JOptionPane.YES_OPTION) {
+                    markTaken(reminder.getId());
+                } else {
+                    markMissed(reminder.getId());
+                }
+                alarmingReminderIds.remove(reminder.getId());
+            }
+        });
+    }
+    
+    private JButton createAlarmButton(String text, Color color1, Color color2) {
+        JButton button = new JButton(text) {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, 
+                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+                java.awt.GradientPaint gp = new java.awt.GradientPaint(
+                    0, 0, color1, 0, getHeight(), color2);
+                g2.setPaint(gp);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
+        button.setForeground(Color.WHITE);
+        button.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        button.setContentAreaFilled(false);
+        button.setBorderPainted(false);
+        button.setFocusPainted(false);
+        button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        button.setPreferredSize(new Dimension(120, 40));
+        return button;
+    }
+
+    /**
+     * Handle alarm user action: TAKEN, MISS, SNOOZE, or STOP.
+     * Stops beeping immediately and updates reminder status if needed.
+     */
+    private void handleAlarmAction(Reminder reminder, String action, Timer beepTimer) {
+        // Stop beeping immediately
+        beepTimer.cancel();
+        alarmingReminderIds.remove(reminder.getId());
+
+        // Update reminder status based on action
+        if ("TAKEN".equals(action)) {
+            markTaken(reminder.getId());
+            logger.info("Reminder marked TAKEN: {}", reminder.getMedicineName());
+        } else if ("MISS".equals(action)) {
+            markMissed(reminder.getId());
+            logger.info("Reminder marked MISSED: {}", reminder.getMedicineName());
+        } else if ("SNOOZE".equals(action)) {
+            // Snooze for 5 minutes - re-trigger alarm after delay
+            Timer snoozeTimer = new Timer("SnoozeTimer", true);
+            snoozeTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    triggerAlarm(reminder);
+                }
+            }, 5 * 60 * 1000); // 5 minutes
+            logger.info("Reminder snoozed for 5 minutes: {}", reminder.getMedicineName());
+        }
+        // If STOP, just close without changing status (leaves it as PENDING for later)
     }
 
     public Reminder addReminder(Reminder reminder) {
@@ -151,8 +389,15 @@ public class ReminderController {
         }
     }
 
+    /**
+     * Get count of pending reminders
+     */
     public int getPendingCount() {
-        return getPendingReminders().size();
+        synchronized (reminders) {
+            return (int) reminders.stream()
+                    .filter(r -> r.getStatus() == Status.PENDING)
+                    .count();
+        }
     }
 
     public List<Reminder> getRemindersSortedByTime() {
