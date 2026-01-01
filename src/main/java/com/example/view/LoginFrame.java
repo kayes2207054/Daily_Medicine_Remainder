@@ -212,11 +212,15 @@ public class LoginFrame extends JFrame {
     }
 
     private void handleLogin() {
-        String username = usernameField.getText();
-        String password = new String(passwordField.getPassword());
+        String username = usernameField.getText().trim();
+        String password = new String(passwordField.getPassword()).trim();
 
-        if (username.trim().isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Please enter username and password.", "Error", JOptionPane.ERROR_MESSAGE);
+        // Validation
+        if (username.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, 
+                "Please enter both username and password!", 
+                "Validation Error", 
+                JOptionPane.WARNING_MESSAGE);
             return;
         }
 
@@ -230,6 +234,7 @@ public class LoginFrame extends JFrame {
         } else {
             String error = authController.getLastError();
             JOptionPane.showMessageDialog(this, error != null ? error : "Invalid credentials", "Login Failed", JOptionPane.ERROR_MESSAGE);
+            passwordField.setText(""); // Clear password on failed login
         }
     }
 

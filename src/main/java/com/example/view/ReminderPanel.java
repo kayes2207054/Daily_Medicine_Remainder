@@ -229,10 +229,20 @@ public class ReminderPanel extends JPanel {
                 LocalTime time = LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
                 LocalDateTime reminderTime = LocalDateTime.of(date, time);
 
-                Reminder reminder = new Reminder(name, reminderTime);
-                int id = controller.addReminder(reminder);
+                // Validate not in past
+                if (reminderTime.isBefore(LocalDateTime.now())) {
+                    int confirm = JOptionPane.showConfirmDialog(dialog,
+                        "This time is in the past. Set anyway?",
+                        "Past Time Warning", 
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE);
+                    if (confirm != JOptionPane.YES_OPTION) return;
+                }
 
-                if (id > 0) {
+                Reminder reminder = new Reminder(name, reminderTime);
+                Reminder addedReminder = controller.addReminder(reminder);
+
+                if (addedReminder != null) {
                     JOptionPane.showMessageDialog(dialog, "Reminder added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
                     refreshTable();
                     dialog.dispose();
@@ -412,6 +422,14 @@ public class ReminderPanel extends JPanel {
     public void stopAutoRefresh() {
         if (refreshTimer != null) {
             refreshTimer.stop();
+            refreshTimer = null;
         }
+    }
+
+    /**
+     * Cleanup method - call when panel is removed
+     */
+    public void cleanup() {
+        stopAutoRefresh();
     }
 }

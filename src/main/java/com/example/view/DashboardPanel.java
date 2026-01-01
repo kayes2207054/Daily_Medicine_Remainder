@@ -21,6 +21,7 @@ public class DashboardPanel extends JPanel {
     private final ReminderController reminderController;
     private final InventoryController inventoryController;
     private final HistoryController historyController;
+    private Timer refreshTimer;
 
     public DashboardPanel(MedicineController medicineController, ReminderController reminderController,
                           InventoryController inventoryController, HistoryController historyController) {
@@ -33,9 +34,17 @@ public class DashboardPanel extends JPanel {
         setBackground(new Color(236, 240, 241));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
+        refreshDashboard();
+        startAutoRefresh();
+    }
+
+    private void refreshDashboard() {
+        removeAll();
         add(createWelcomePanel(), BorderLayout.NORTH);
         add(createStatsPanel(), BorderLayout.CENTER);
         add(createRecentActivityPanel(), BorderLayout.SOUTH);
+        revalidate();
+        repaint();
     }
 
     private JPanel createWelcomePanel() {
@@ -170,5 +179,22 @@ public class DashboardPanel extends JPanel {
         panel.add(scrollPane, BorderLayout.CENTER);
 
         return panel;
+    }
+
+    private void startAutoRefresh() {
+        // Auto-refresh dashboard every 30 seconds
+        refreshTimer = new Timer(30000, e -> refreshDashboard());
+        refreshTimer.start();
+    }
+
+    public void stopAutoRefresh() {
+        if (refreshTimer != null) {
+            refreshTimer.stop();
+            refreshTimer = null;
+        }
+    }
+
+    public void cleanup() {
+        stopAutoRefresh();
     }
 }

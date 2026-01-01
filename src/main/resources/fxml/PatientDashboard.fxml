@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.text.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" 
+           fx:controller="com.example.viewfx.PatientDashboardController"
+           styleClass="dashboard-container">
+    
+    <!-- Top Header -->
+    <top>
+        <HBox styleClass="header" alignment="CENTER_LEFT" spacing="20">
+            <padding>
+                <Insets top="15" right="30" bottom="15" left="30"/>
+            </padding>
+            
+            <Label text="💊 DailyDose" styleClass="header-title"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="userLabel" text="Welcome, Patient" style="-fx-font-size: 16px; -fx-text-fill: #2c3e50;"/>
+            <Button text="Logout" onAction="#handleLogout" styleClass="danger-button"/>
+        </HBox>
+    </top>
+    
+    <!-- Center Content -->
+    <center>
+        <TabPane fx:id="tabPane" tabClosingPolicy="UNAVAILABLE">
+            
+            <!-- Dashboard Tab -->
+            <Tab text="📊 Dashboard">
+                <ScrollPane fitToWidth="true" fitToHeight="true">
+                    <VBox spacing="20" styleClass="dashboard-container">
+                        <padding>
+                            <Insets top="25" right="25" bottom="25" left="25"/>
+                        </padding>
+                        
+                        <!-- Stats Cards -->
+                        <HBox spacing="20" alignment="CENTER">
+                            <VBox fx:id="medicinesCard" styleClass="stats-card" alignment="CENTER" spacing="10" HBox.hgrow="ALWAYS">
+                                <Label fx:id="totalMedicinesLabel" text="0" styleClass="stats-value" style="-fx-text-fill: #3498db;"/>
+                                <Label text="Total Medicines" styleClass="stats-label"/>
+                            </VBox>
+                            
+                            <VBox fx:id="pendingCard" styleClass="stats-card" alignment="CENTER" spacing="10" HBox.hgrow="ALWAYS">
+                                <Label fx:id="pendingRemindersLabel" text="0" styleClass="stats-value" style="-fx-text-fill: #f39c12;"/>
+                                <Label text="Pending Reminders" styleClass="stats-label"/>
+                            </VBox>
+                            
+                            <VBox fx:id="takenCard" styleClass="stats-card" alignment="CENTER" spacing="10" HBox.hgrow="ALWAYS">
+                                <Label fx:id="takenTodayLabel" text="0" styleClass="stats-value" style="-fx-text-fill: #2ecc71;"/>
+                                <Label text="Taken Today" styleClass="stats-label"/>
+                            </VBox>
+                            
+                            <VBox fx:id="missedCard" styleClass="stats-card" alignment="CENTER" spacing="10" HBox.hgrow="ALWAYS">
+                                <Label fx:id="missedTodayLabel" text="0" styleClass="stats-value" style="-fx-text-fill: #e74c3c;"/>
+                                <Label text="Missed Today" styleClass="stats-label"/>
+                            </VBox>
+                        </HBox>
+                        
+                        <!-- Recent Activity -->
+                        <VBox styleClass="card" spacing="15">
+                            <Label text="📅 Recent Activity (Last 7 Days)" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                            <TableView fx:id="recentActivityTable" prefHeight="250">
+                                <columns>
+                                    <TableColumn fx:id="dateColumn" text="Date" prefWidth="120"/>
+                                    <TableColumn fx:id="timeColumn" text="Time" prefWidth="100"/>
+                                    <TableColumn fx:id="medicineColumn" text="Medicine" prefWidth="200"/>
+                                    <TableColumn fx:id="statusColumn" text="Status" prefWidth="120"/>
+                                    <TableColumn fx:id="notesColumn" text="Notes" prefWidth="200"/>
+                                </columns>
+                            </TableView>
+                        </VBox>
+                    </VBox>
+                </ScrollPane>
+            </Tab>
+            
+            <!-- Medicines Tab -->
+            <Tab text="💊 Medicines">
+                <VBox spacing="15">
+                    <padding>
+                        <Insets top="20" right="20" bottom="20" left="20"/>
+                    </padding>
+                    
+                    <!-- Medicine Actions -->
+                    <HBox spacing="15" alignment="CENTER_LEFT">
+                        <Button text="➕ Add Medicine" onAction="#handleAddMedicine" styleClass="success-button"/>
+                        <Button text="✏️ Edit" onAction="#handleEditMedicine" styleClass="secondary-button"/>
+                        <Button text="🗑️ Delete" onAction="#handleDeleteMedicine" styleClass="danger-button"/>
+                        <Region HBox.hgrow="ALWAYS"/>
+                        <TextField fx:id="medicineSearchField" promptText="🔍 Search medicines..." prefWidth="250"/>
+                    </HBox>
+                    
+                    <!-- Medicine Table -->
+                    <TableView fx:id="medicinesTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="medIdColumn" text="ID" prefWidth="50"/>
+                            <TableColumn fx:id="medNameColumn" text="Name" prefWidth="200"/>
+                            <TableColumn fx:id="medDosageColumn" text="Dosage" prefWidth="150"/>
+                            <TableColumn fx:id="medFrequencyColumn" text="Frequency" prefWidth="150"/>
+                            <TableColumn fx:id="medInstructionsColumn" text="Instructions" prefWidth="250"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+            
+            <!-- Reminders Tab -->
+            <Tab text="⏰ Reminders">
+                <VBox spacing="15">
+                    <padding>
+                        <Insets top="20" right="20" bottom="20" left="20"/>
+                    </padding>
+                    
+                    <!-- Reminder Actions -->
+                    <HBox spacing="15" alignment="CENTER_LEFT">
+                        <Button text="➕ Add Reminder" onAction="#handleAddReminder" styleClass="success-button"/>
+                        <Button text="✏️ Edit" onAction="#handleEditReminder" styleClass="secondary-button"/>
+                        <Button text="🗑️ Delete" onAction="#handleDeleteReminder" styleClass="danger-button"/>
+                        <Button text="🔄 Refresh" onAction="#refreshReminders" styleClass="secondary-button"/>
+                    </HBox>
+                    
+                    <!-- Reminder Table -->
+                    <TableView fx:id="remindersTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="remIdColumn" text="ID" prefWidth="50"/>
+                            <TableColumn fx:id="remMedicineColumn" text="Medicine" prefWidth="200"/>
+                            <TableColumn fx:id="remDateColumn" text="Date" prefWidth="120"/>
+                            <TableColumn fx:id="remTimeColumn" text="Time" prefWidth="100"/>
+                            <TableColumn fx:id="remStatusColumn" text="Status" prefWidth="120"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+            
+            <!-- History Tab -->
+            <Tab text="📊 History">
+                <VBox spacing="15">
+                    <padding>
+                        <Insets top="20" right="20" bottom="20" left="20"/>
+                    </padding>
+                    
+                    <!-- History Actions -->
+                    <HBox spacing="15" alignment="CENTER_LEFT">
+                        <Label text="Date Range:"/>
+                        <DatePicker fx:id="startDatePicker" promptText="Start Date"/>
+                        <Label text="to"/>
+                        <DatePicker fx:id="endDatePicker" promptText="End Date"/>
+                        <Button text="🔍 Filter" onAction="#filterHistory" styleClass="secondary-button"/>
+                        <Button text="🔄 Show All" onAction="#showAllHistory" styleClass="secondary-button"/>
+                    </HBox>
+                    
+                    <!-- History Table -->
+                    <TableView fx:id="historyTable" VBox.vgrow="ALWAYS">
+                        <columns>
+                            <TableColumn fx:id="histIdColumn" text="ID" prefWidth="50"/>
+                            <TableColumn fx:id="histMedicineColumn" text="Medicine" prefWidth="200"/>
+                            <TableColumn fx:id="histDateColumn" text="Date" prefWidth="120"/>
+                            <TableColumn fx:id="histTimeColumn" text="Time" prefWidth="100"/>
+                            <TableColumn fx:id="histStatusColumn" text="Status" prefWidth="120"/>
+                            <TableColumn fx:id="histNotesColumn" text="Notes" prefWidth="250"/>
+                        </columns>
+                    </TableView>
+                </VBox>
+            </Tab>
+            
+        </TabPane>
+    </center>
+    
+</BorderPane>

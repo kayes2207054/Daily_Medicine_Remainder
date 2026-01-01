@@ -62,6 +62,13 @@ public class DatabaseManager {
     }
 
     /**
+     * Close database connection properly
+     */
+    public void closeConnection() {
+        disconnect();
+    }
+
+    /**
      * Initialize database tables if they don't exist
      */
     private void initializeDatabase() {
@@ -115,6 +122,41 @@ public class DatabaseManager {
                     "notes TEXT," +
                     "FOREIGN KEY(medicine_id) REFERENCES medicines(id) ON DELETE CASCADE," +
                     "FOREIGN KEY(reminder_id) REFERENCES reminders(id) ON DELETE SET NULL)");
+
+            // Users table (Patient/Guardian)
+            stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "username TEXT UNIQUE NOT NULL," +
+                    "password_hash TEXT NOT NULL," +
+                    "role TEXT NOT NULL," +
+                    "full_name TEXT," +
+                    "email TEXT," +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "active BOOLEAN DEFAULT 1)");
+
+            // Guardian-Patient Links table
+            stmt.execute("CREATE TABLE IF NOT EXISTS guardian_patient_links (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "guardian_id INTEGER NOT NULL," +
+                    "patient_id INTEGER NOT NULL," +
+                    "linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "active BOOLEAN DEFAULT 1," +
+                    "FOREIGN KEY(guardian_id) REFERENCES users(id) ON DELETE CASCADE," +
+                    "FOREIGN KEY(patient_id) REFERENCES users(id) ON DELETE CASCADE," +
+                    "UNIQUE(guardian_id, patient_id))");
+
+            // Notifications table
+            stmt.execute("CREATE TABLE IF NOT EXISTS notifications (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "guardian_id INTEGER NOT NULL," +
+                    "patient_id INTEGER NOT NULL," +
+                    "type TEXT NOT NULL," +
+                    "message TEXT NOT NULL," +
+                    "details TEXT," +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "read BOOLEAN DEFAULT 0," +
+                    "FOREIGN KEY(guardian_id) REFERENCES users(id) ON DELETE CASCADE," +
+                    "FOREIGN KEY(patient_id) REFERENCES users(id) ON DELETE CASCADE)");
 
             logger.info("Database tables initialized successfully");
         } catch (SQLException e) {
@@ -640,4 +682,311 @@ public class DatabaseManager {
         }
         return 0;
     }
+
+    // ============= USER OPERATIONS =============
+
+    /**
+     * Add new user to database
+     */
+    public int addUser(User user) {
+        String sql = "INSERT INTO users(username, password_hash, role, full_name, email) VALUES(?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, user.getUsername());
+            pstmt.setString(2, user.getPasswordHash());
+            pstmt.setString(3, user.getRole().toString());
+            pstmt.setString(4, user.getFullName());
+            pstmt.setString(5, user.getEmail());
+            pstmt.executeUpdate();
+
+            ResultSet keys = pstmt.getGeneratedKeys();
+            if (keys.next()) {
+                return keys.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Error adding user", e);
+        }
+        return -1;
+    }
+
+    /**
+     * Get user by username
+     */
+    public User getUserByUsername(String username) {
+        String sql = "SELECT * FROM users WHERE username = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                User user = new User();
+                user.setId(rs.getInt("id"));
+                user.setUsername(rs.getString("username"));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setRole(User.Role.valueOf(rs.getString("role")));
+                user.setFullName(rs.getString("full_name"));
+                user.setEmail(rs.getString("email"));
+                user.setActive(rs.getBoolean("active"));
+                Timestamp createdAt = rs.getTimestamp("created_at");
+                if (createdAt != null) {
+                    user.setCreatedAt(createdAt.toLocalDateTime());
+                }
+                return user;
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting user by username", e);
+        }
+        return null;
+    }
+
+    /**
+     * Get user by ID
+     */
+    public User getUserById(int id) {
+        String sql = "SELECT * FROM users WHERE id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, id);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                User user = new User();
+                user.setId(rs.getInt("id"));
+                user.setUsername(rs.getString("username"));
+                user.setPasswordHash(rs.getString("password_hash"));
+                user.setRole(User.Role.valueOf(rs.getString("role")));
+                user.setFullName(rs.getString("full_name"));
+                user.setEmail(rs.getString("email"));
+                user.setActive(rs.getBoolean("active"));
+                Timestamp createdAt = rs.getTimestamp("created_at");
+                if (createdAt != null) {
+                    user.setCreatedAt(createdAt.toLocalDateTime());
+                }
+                return user;
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting user by id", e);
+        }
+        return null;
+    }
+
+    /**
+     * Update user information
+     */
+    public boolean updateUser(User user) {
+        String sql = "UPDATE users SET password_hash = ?, role = ?, full_name = ?, email = ?, active = ? WHERE id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setString(1, user.getPasswordHash());
+            pstmt.setString(2, user.getRole().toString());
+            pstmt.setString(3, user.getFullName());
+            pstmt.setString(4, user.getEmail());
+            pstmt.setBoolean(5, user.isActive());
+            pstmt.setInt(6, user.getId());
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error updating user", e);
+        }
+        return false;
+    }
+
+    // ============= GUARDIAN-PATIENT LINK OPERATIONS =============
+
+    /**
+     * Link a guardian to a patient
+     */
+    public int linkGuardianToPatient(int guardianId, int patientId) {
+        String sql = "INSERT INTO guardian_patient_links(guardian_id, patient_id) VALUES(?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setInt(1, guardianId);
+            pstmt.setInt(2, patientId);
+            pstmt.executeUpdate();
+
+            ResultSet keys = pstmt.getGeneratedKeys();
+            if (keys.next()) {
+                return keys.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Error linking guardian to patient", e);
+        }
+        return -1;
+    }
+
+    /**
+     * Get all patients linked to a guardian
+     */
+    public List<GuardianPatientLink> getPatientsByGuardianId(int guardianId) {
+        List<GuardianPatientLink> links = new ArrayList<>();
+        String sql = "SELECT gpl.*, u.username as patient_username, u.full_name as patient_full_name " +
+                "FROM guardian_patient_links gpl " +
+                "JOIN users u ON gpl.patient_id = u.id " +
+                "WHERE gpl.guardian_id = ? AND gpl.active = 1";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, guardianId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                GuardianPatientLink link = new GuardianPatientLink();
+                link.setId(rs.getInt("id"));
+                link.setGuardianId(rs.getInt("guardian_id"));
+                link.setPatientId(rs.getInt("patient_id"));
+                link.setPatientUsername(rs.getString("patient_username"));
+                link.setPatientFullName(rs.getString("patient_full_name"));
+                link.setActive(rs.getBoolean("active"));
+                Timestamp linkedAt = rs.getTimestamp("linked_at");
+                if (linkedAt != null) {
+                    link.setLinkedAt(linkedAt.toLocalDateTime());
+                }
+                links.add(link);
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting patients by guardian id", e);
+        }
+        return links;
+    }
+
+    /**
+     * Get all guardians linked to a patient
+     */
+    public List<GuardianPatientLink> getGuardiansByPatientId(int patientId) {
+        List<GuardianPatientLink> links = new ArrayList<>();
+        String sql = "SELECT gpl.*, u.username as guardian_username " +
+                "FROM guardian_patient_links gpl " +
+                "JOIN users u ON gpl.guardian_id = u.id " +
+                "WHERE gpl.patient_id = ? AND gpl.active = 1";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, patientId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                GuardianPatientLink link = new GuardianPatientLink();
+                link.setId(rs.getInt("id"));
+                link.setGuardianId(rs.getInt("guardian_id"));
+                link.setPatientId(rs.getInt("patient_id"));
+                link.setGuardianUsername(rs.getString("guardian_username"));
+                link.setActive(rs.getBoolean("active"));
+                Timestamp linkedAt = rs.getTimestamp("linked_at");
+                if (linkedAt != null) {
+                    link.setLinkedAt(linkedAt.toLocalDateTime());
+                }
+                links.add(link);
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting guardians by patient id", e);
+        }
+        return links;
+    }
+
+    /**
+     * Unlink a guardian from a patient
+     */
+    public boolean unlinkGuardianFromPatient(int guardianId, int patientId) {
+        String sql = "UPDATE guardian_patient_links SET active = 0 WHERE guardian_id = ? AND patient_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, guardianId);
+            pstmt.setInt(2, patientId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error unlinking guardian from patient", e);
+        }
+        return false;
+    }
+
+    // ============= NOTIFICATION OPERATIONS =============
+
+    /**
+     * Add new notification
+     */
+    public int addNotification(Notification notification) {
+        String sql = "INSERT INTO notifications(guardian_id, patient_id, type, message, details) VALUES(?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setInt(1, notification.getGuardianId());
+            pstmt.setInt(2, notification.getPatientId());
+            pstmt.setString(3, notification.getType().toString());
+            pstmt.setString(4, notification.getMessage());
+            pstmt.setString(5, notification.getDetails());
+            pstmt.executeUpdate();
+
+            ResultSet keys = pstmt.getGeneratedKeys();
+            if (keys.next()) {
+                return keys.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Error adding notification", e);
+        }
+        return -1;
+    }
+
+    /**
+     * Get all notifications for a guardian
+     */
+    public List<Notification> getNotificationsByGuardianId(int guardianId) {
+        List<Notification> notifications = new ArrayList<>();
+        String sql = "SELECT n.*, u.full_name as patient_name " +
+                "FROM notifications n " +
+                "JOIN users u ON n.patient_id = u.id " +
+                "WHERE n.guardian_id = ? ORDER BY n.created_at DESC";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, guardianId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                Notification notification = new Notification();
+                notification.setId(rs.getInt("id"));
+                notification.setGuardianId(rs.getInt("guardian_id"));
+                notification.setPatientId(rs.getInt("patient_id"));
+                notification.setPatientName(rs.getString("patient_name"));
+                notification.setType(Notification.Type.valueOf(rs.getString("type")));
+                notification.setMessage(rs.getString("message"));
+                notification.setDetails(rs.getString("details"));
+                notification.setRead(rs.getBoolean("read"));
+                Timestamp createdAt = rs.getTimestamp("created_at");
+                if (createdAt != null) {
+                    notification.setCreatedAt(createdAt.toLocalDateTime());
+                }
+                notifications.add(notification);
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting notifications by guardian id", e);
+        }
+        return notifications;
+    }
+
+    /**
+     * Get unread notification count for a guardian
+     */
+    public int getUnreadNotificationCount(int guardianId) {
+        String sql = "SELECT COUNT(*) FROM notifications WHERE guardian_id = ? AND read = 0";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, guardianId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            logger.error("Error getting unread notification count", e);
+        }
+        return 0;
+    }
+
+    /**
+     * Mark notification as read
+     */
+    public boolean markNotificationAsRead(int notificationId) {
+        String sql = "UPDATE notifications SET read = 1 WHERE id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, notificationId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error marking notification as read", e);
+        }
+        return false;
+    }
+
+    /**
+     * Mark all notifications as read for a guardian
+     */
+    public boolean markAllNotificationsAsRead(int guardianId) {
+        String sql = "UPDATE notifications SET read = 1 WHERE guardian_id = ? AND read = 0";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, guardianId);
+            return pstmt.executeUpdate() > 0;
+        } catch (SQLException e) {
+            logger.error("Error marking all notifications as read", e);
+        }
+        return false;
+    }
 }
+

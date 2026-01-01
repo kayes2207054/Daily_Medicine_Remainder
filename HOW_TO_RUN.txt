@@ -1,0 +1,181 @@
+================================================================
+  DailyDose - Personal Medicine Companion
+  HOW TO RUN THE APPLICATION
+================================================================
+
+📋 PREREQUISITES:
+-----------------
+1. Java JDK 17 or higher installed
+2. Maven installed (or use IntelliJ's built-in Maven)
+3. IntelliJ IDEA (recommended) or VS Code with Java extensions
+
+
+🚀 METHOD 1: Run from IntelliJ IDEA (EASIEST)
+----------------------------------------------
+STEP 1: Open Project
+   - Open IntelliJ IDEA
+   - File → Open
+   - Select "Daily_Medicine_Remainder" folder
+   - Click OK
+
+STEP 2: Configure JavaFX
+   - IntelliJ will automatically detect Maven pom.xml
+   - Wait for Maven to download dependencies (check bottom-right progress)
+   - This may take 2-3 minutes first time
+
+STEP 3: Run Application
+   - Navigate to: src/main/java/com/example/DailyDoseApp.java
+   - Right-click on DailyDoseApp.java
+   - Select "Run 'DailyDoseApp.main()'"
+   
+   OR
+
+   - Click the green ▶ play button next to "public class DailyDoseApp"
+
+STEP 4: Login
+   Patient Account:
+      Username: admin
+      Password: admin123
+      Role: Select "Patient"
+   
+   Guardian Account:
+      Username: guardian
+      Password: guard123
+      Role: Select "Guardian"
+
+
+🚀 METHOD 2: Run from Command Line (if Maven is installed)
+-----------------------------------------------------------
+STEP 1: Open Terminal/Command Prompt
+
+STEP 2: Navigate to project folder
+   cd "e:\2-2\Advance java lab\File for my Medicine Tracker app\Daily_Medicine_Remainder"
+
+STEP 3: Run Maven command
+   mvn clean javafx:run
+
+STEP 4: Wait for compilation and application launch
+
+
+🚀 METHOD 3: Run BAT file (if Maven is in PATH)
+------------------------------------------------
+STEP 1: Double-click "RUN_APP.bat" in project root
+STEP 2: Application will compile and launch automatically
+
+
+🔧 TROUBLESHOOTING:
+-------------------
+
+❌ "Module not found" error
+   Solution: 
+   - IntelliJ: File → Invalidate Caches → Restart
+   - Run: mvn clean install
+
+❌ "JavaFX runtime components are missing"
+   Solution:
+   - Verify pom.xml has javafx dependencies
+   - IntelliJ: View → Tool Windows → Maven → Reload All Maven Projects
+
+❌ "Main class not found"
+   Solution:
+   - Check pom.xml has:
+     <mainClass>com.example.DailyDoseApp</mainClass>
+
+❌ Application doesn't start
+   Solution:
+   - Check Java version: java -version (must be 17+)
+   - Reimport Maven project in IntelliJ
+
+❌ Alarm doesn't ring
+   Solution:
+   - Set reminder time in FUTURE (current time + 1-2 minutes)
+   - Verify status is "PENDING" in Reminders tab
+   - Wait for exact time match
+
+❌ Guardian can't see patient
+   Solution:
+   - Login as Guardian
+   - Go to "My Patients" tab
+   - Enter patient username (e.g., "admin")
+   - Click "Link Patient"
+
+
+📝 DEFAULT LOGIN CREDENTIALS:
+------------------------------
+Patient:
+   Username: admin
+   Password: admin123
+   Role: Patient
+
+Guardian:
+   Username: guardian
+   Password: guard123
+   Role: Guardian
+
+
+🎯 FEATURES TO TEST:
+--------------------
+✅ Login with Patient role
+✅ Add a medicine
+✅ Set reminder (current time + 1 minute)
+✅ Wait for alarm popup with BEEP sound
+✅ Click "TAKEN" button
+✅ Verify saved in History tab
+✅ Logout
+✅ Login as Guardian
+✅ Link patient "admin" (if not already linked)
+✅ View patient's dose history
+✅ Check Notifications tab for patient action
+✅ View adherence percentage
+
+
+📊 DATABASE LOCATION:
+---------------------
+After first run, database file will be created at:
+Daily_Medicine_Remainder/daily_dose.db
+
+All data persists automatically!
+
+
+🆘 STILL NOT WORKING?
+---------------------
+1. Make sure you're using IntelliJ IDEA (best compatibility)
+2. Check Java version is 17 or higher
+3. Wait for Maven dependencies to download completely
+4. Try: File → Invalidate Caches → Restart
+5. Rebuild project: Build → Rebuild Project
+
+
+✅ VERIFICATION CHECKLIST:
+--------------------------
+After successful run, you should see:
+[x] Login screen with gradient background
+[x] Patient/Guardian radio buttons
+[x] After login, tabbed interface
+[x] Patient: 4 tabs (Dashboard, Medicines, Reminders, History)
+[x] Guardian: 3 tabs (My Patients, Patient History, Notifications)
+[x] Modern UI with color-coded status
+[x] Real-time alarm popup at scheduled time
+[x] System beep sound on alarm
+
+
+🎓 FOR TEACHER DEMONSTRATION:
+------------------------------
+1. Login as Patient (admin/admin123)
+2. Add medicine: "Aspirin", dosage "100mg", frequency "Daily"
+3. Set reminder: Today's date, Time = Current time + 1 minute
+4. Wait for alarm to ring (popup + beep)
+5. Click "TAKEN" button
+6. Show History tab (record saved with timestamp)
+7. Logout
+8. Login as Guardian (guardian/guard123)
+9. Link patient "admin" (if not linked)
+10. View patient history
+11. Check Notifications tab (notification about patient action)
+
+
+Ready to run! 🚀
+
+---------------------------------------------------------
+For any issues, check JAVAFX_README.md for full details
+---------------------------------------------------------

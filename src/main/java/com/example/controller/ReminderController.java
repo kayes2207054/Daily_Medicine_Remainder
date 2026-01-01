@@ -215,6 +215,16 @@ public class ReminderController {
                 buttonPanel.add(missBtn);
                 
                 alarmDialog.add(buttonPanel, BorderLayout.SOUTH);
+                
+                // Handle window close (X button) - stop beep
+                alarmDialog.addWindowListener(new java.awt.event.WindowAdapter() {
+                    @Override
+                    public void windowClosing(java.awt.event.WindowEvent e) {
+                        beepTimer.cancel();
+                        alarmingReminderIds.remove(reminder.getId());
+                    }
+                });
+                
                 alarmDialog.setVisible(true);
                 
             } catch (Exception ex) {
@@ -428,5 +438,15 @@ public class ReminderController {
         if (inv != null) {
             inventoryController.decreaseQuantity(inv.getMedicineId(), 1);
         }
+    }
+
+    /**
+     * Cleanup method to stop all background services and timers
+     */
+    public void cleanup() {
+        logger.info("ReminderController cleanup started...");
+        stopBasicAlarmTimer();
+        alarmingReminderIds.clear();
+        logger.info("ReminderController cleanup completed");
     }
 }

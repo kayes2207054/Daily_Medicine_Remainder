@@ -1,11 +1,14 @@
 package com.example.view;
 
 import com.example.controller.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
 
 public class MainFrame extends JFrame {
+    private static final Logger logger = LoggerFactory.getLogger(MainFrame.class);
     private MedicineController medicineController;
     private ReminderController reminderController;
     private InventoryController inventoryController;
@@ -29,6 +32,13 @@ public class MainFrame extends JFrame {
         // Link controllers
         reminderController.setInventoryController(inventoryController);
         reminderController.setHistoryController(historyController);
+        
+        // Show alarm service started confirmation
+        SwingUtilities.invokeLater(() -> {
+            JOptionPane.showMessageDialog(this,
+                "Alarm monitoring service started!\nYou will be notified when reminders are due.",
+                "DailyDose Ready", JOptionPane.INFORMATION_MESSAGE);
+        });
     }
 
     private void initComponents() {
@@ -117,6 +127,21 @@ public class MainFrame extends JFrame {
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         button.setPreferredSize(new Dimension(100, 35));
         return button;
+    }
+
+    @Override
+    public void dispose() {
+        // Cleanup all resources before closing
+        try {
+            if (reminderController != null) {
+                reminderController.cleanup();
+            }
+            com.example.database.DatabaseManager.getInstance().closeConnection();
+            logger.info("Application resources cleaned up successfully");
+        } catch (Exception e) {
+            logger.error("Error during cleanup", e);
+        }
+        super.dispose();
     }
 
     private void logout() {
