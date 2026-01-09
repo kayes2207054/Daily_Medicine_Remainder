@@ -2,6 +2,7 @@ package com.example.controller;
 
 import com.example.database.DatabaseManager;
 import com.example.model.Medicine;
+import com.example.utils.DataChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,6 +19,7 @@ public class MedicineController {
     private static final Logger logger = LoggerFactory.getLogger(MedicineController.class);
     private DatabaseManager dbManager;
     private List<Medicine> medicines;
+    private List<DataChangeListener> listeners = new ArrayList<>();
 
     public MedicineController() {
         this.dbManager = DatabaseManager.getInstance();
@@ -53,6 +55,7 @@ public class MedicineController {
             medicine.setId(id);
             medicines.add(medicine);
             logger.info("Medicine added: " + medicine.getName() + " with ID: " + id);
+            notifyMedicineDataChanged();
         }
         return id;
     }
@@ -76,6 +79,7 @@ public class MedicineController {
                 }
             }
             logger.info("Medicine updated: " + medicine.getName());
+            notifyMedicineDataChanged();
         }
         return success;
     }
@@ -88,6 +92,7 @@ public class MedicineController {
         if (success) {
             medicines.removeIf(m -> m.getId() == medicineId);
             logger.info("Medicine deleted with ID: " + medicineId);
+            notifyMedicineDataChanged();
         }
         return success;
     }
@@ -192,6 +197,35 @@ public class MedicineController {
     public void refresh() {
         loadMedicines();
         logger.info("Medicine list refreshed");
+    }
+    
+    /**
+     * Add data change listener
+     */
+    public void addDataChangeListener(DataChangeListener listener) {
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+    
+    /**
+     * Remove data change listener
+     */
+    public void removeDataChangeListener(DataChangeListener listener) {
+        listeners.remove(listener);
+    }
+    
+    /**
+     * Notify all listeners that medicine data has changed
+     */
+    private void notifyMedicineDataChanged() {
+        for (DataChangeListener listener : listeners) {
+            try {
+                listener.onMedicineDataChanged();
+            } catch (Exception e) {
+                logger.error("Error notifying listener", e);
+            }
+        }
     }
 }
 

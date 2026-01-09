@@ -16,7 +16,7 @@
                 <Insets top="15" right="30" bottom="15" left="30"/>
             </padding>
             
-            <Label text="💊 DailyDose" styleClass="header-title"/>
+            <Label text="DailyDose" styleClass="header-title"/>
             <Region HBox.hgrow="ALWAYS"/>
             <Label fx:id="userLabel" text="Welcome, Patient" style="-fx-font-size: 16px; -fx-text-fill: #2c3e50;"/>
             <Button text="Logout" onAction="#handleLogout" styleClass="danger-button"/>
@@ -28,7 +28,7 @@
         <TabPane fx:id="tabPane" tabClosingPolicy="UNAVAILABLE">
             
             <!-- Dashboard Tab -->
-            <Tab text="📊 Dashboard">
+            <Tab text="Dashboard">
                 <ScrollPane fitToWidth="true" fitToHeight="true">
                     <VBox spacing="20" styleClass="dashboard-container">
                         <padding>
@@ -60,7 +60,7 @@
                         
                         <!-- Recent Activity -->
                         <VBox styleClass="card" spacing="15">
-                            <Label text="📅 Recent Activity (Last 7 Days)" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                            <Label text="Recent Activity (Last 7 Days)" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
                             <TableView fx:id="recentActivityTable" prefHeight="250">
                                 <columns>
                                     <TableColumn fx:id="dateColumn" text="Date" prefWidth="120"/>
@@ -76,7 +76,7 @@
             </Tab>
             
             <!-- Medicines Tab -->
-            <Tab text="💊 Medicines">
+            <Tab text="Medicines">
                 <VBox spacing="15">
                     <padding>
                         <Insets top="20" right="20" bottom="20" left="20"/>
@@ -84,11 +84,11 @@
                     
                     <!-- Medicine Actions -->
                     <HBox spacing="15" alignment="CENTER_LEFT">
-                        <Button text="➕ Add Medicine" onAction="#handleAddMedicine" styleClass="success-button"/>
-                        <Button text="✏️ Edit" onAction="#handleEditMedicine" styleClass="secondary-button"/>
-                        <Button text="🗑️ Delete" onAction="#handleDeleteMedicine" styleClass="danger-button"/>
+                        <Button text="Add Medicine" onAction="#handleAddMedicine" styleClass="success-button"/>
+                        <Button text="Edit" onAction="#handleEditMedicine" styleClass="secondary-button"/>
+                        <Button text="Delete" onAction="#handleDeleteMedicine" styleClass="danger-button"/>
                         <Region HBox.hgrow="ALWAYS"/>
-                        <TextField fx:id="medicineSearchField" promptText="🔍 Search medicines..." prefWidth="250"/>
+                        <TextField fx:id="medicineSearchField" promptText="Search medicines..." prefWidth="250"/>
                     </HBox>
                     
                     <!-- Medicine Table -->
@@ -105,7 +105,7 @@
             </Tab>
             
             <!-- Reminders Tab -->
-            <Tab text="⏰ Reminders">
+            <Tab text="Reminders">
                 <VBox spacing="15">
                     <padding>
                         <Insets top="20" right="20" bottom="20" left="20"/>
@@ -113,10 +113,10 @@
                     
                     <!-- Reminder Actions -->
                     <HBox spacing="15" alignment="CENTER_LEFT">
-                        <Button text="➕ Add Reminder" onAction="#handleAddReminder" styleClass="success-button"/>
-                        <Button text="✏️ Edit" onAction="#handleEditReminder" styleClass="secondary-button"/>
-                        <Button text="🗑️ Delete" onAction="#handleDeleteReminder" styleClass="danger-button"/>
-                        <Button text="🔄 Refresh" onAction="#refreshReminders" styleClass="secondary-button"/>
+                        <Button text="Add Reminder" onAction="#handleAddReminder" styleClass="success-button"/>
+                        <Button text="Edit" onAction="#handleEditReminder" styleClass="secondary-button"/>
+                        <Button text="Delete" onAction="#handleDeleteReminder" styleClass="danger-button"/>
+                        <Button text="Refresh" onAction="#refreshReminders" styleClass="secondary-button"/>
                     </HBox>
                     
                     <!-- Reminder Table -->
@@ -133,7 +133,7 @@
             </Tab>
             
             <!-- History Tab -->
-            <Tab text="📊 History">
+            <Tab text="History">
                 <VBox spacing="15">
                     <padding>
                         <Insets top="20" right="20" bottom="20" left="20"/>
@@ -145,8 +145,8 @@
                         <DatePicker fx:id="startDatePicker" promptText="Start Date"/>
                         <Label text="to"/>
                         <DatePicker fx:id="endDatePicker" promptText="End Date"/>
-                        <Button text="🔍 Filter" onAction="#filterHistory" styleClass="secondary-button"/>
-                        <Button text="🔄 Show All" onAction="#showAllHistory" styleClass="secondary-button"/>
+                        <Button text="Filter" onAction="#filterHistory" styleClass="secondary-button"/>
+                        <Button text="Show All" onAction="#showAllHistory" styleClass="secondary-button"/>
                     </HBox>
                     
                     <!-- History Table -->

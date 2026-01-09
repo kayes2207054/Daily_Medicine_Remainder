@@ -3,6 +3,7 @@ package com.example.viewfx;
 import com.example.DailyDoseApp;
 import com.example.controller.*;
 import com.example.model.*;
+import com.example.utils.DataChangeListener;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -32,7 +33,7 @@ import java.util.stream.Collectors;
  * 
  * রোগীর ড্যাশবোর্ড কন্ট্রোলার - ঔষধ, রিমাইন্ডার এবং ইতিহাস পরিচালনার প্রধান ইন্টারফেস
  */
-public class PatientDashboardController {
+public class PatientDashboardController implements DataChangeListener {
     private static final Logger logger = LoggerFactory.getLogger(PatientDashboardController.class);
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
@@ -105,6 +106,11 @@ public class PatientDashboardController {
         if (currentUser != null) {
             userLabel.setText("Welcome, " + currentUser.getFullName());
         }
+        
+        // Register as listener for data changes
+        medicineController.addDataChangeListener(this);
+        reminderController.addDataChangeListener(this);
+        historyController.addDataChangeListener(this);
         
         // Initialize tables
         initializeDashboardTable();
@@ -370,10 +376,13 @@ public class PatientDashboardController {
         Optional<Medicine> result = dialog.showAndWait();
         result.ifPresent(medicine -> {
             if (!medicine.getName().isEmpty() && !medicine.getDosage().isEmpty()) {
-                medicineController.addMedicine(medicine);
-                loadMedicines();
-                refreshDashboard();
-                showInfo("Medicine added successfully!");
+                int id = medicineController.addMedicine(medicine);
+                if (id > 0) {
+                    showInfo("Medicine added successfully!");
+                    // Listener will auto-refresh the view - no need to manually call loadMedicines()
+                } else {
+                    showError("Failed to add medicine. It may already exist.");
+                }
             } else {
                 showError("Name and Dosage are required!");
             }
@@ -591,5 +600,37 @@ public class PatientDashboardController {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+    
+    // DataChangeListener implementation - auto-refresh UI when data changes
+    @Override
+    public void onMedicineDataChanged() {
+        Platform.runLater(() -> {
+            loadMedicines();
+            refreshDashboard();
+        });
+    }
+    
+    @Override
+    public void onReminderDataChanged() {
+        Platform.runLater(() -> {
+            loadReminders();
+            refreshDashboard();
+        });
+    }
+    
+    @Override
+    public void onInventoryDataChanged() {
+        Platform.runLater(() -> {
+            refreshDashboard();
+        });
+    }
+    
+    @Override
+    public void onHistoryDataChanged() {
+        Platform.runLater(() -> {
+            loadHistory();
+            refreshDashboard();
+        });
     }
 }

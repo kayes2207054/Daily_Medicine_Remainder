@@ -2,6 +2,7 @@ package com.example.view;
 
 import com.example.controller.ReminderController;
 import com.example.model.Reminder;
+import com.example.utils.DataChangeListener;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -17,7 +18,7 @@ import java.util.List;
 /**
  * Enhanced Reminder Panel with full CRUD operations and alarm controls
  */
-public class ReminderPanel extends JPanel {
+public class ReminderPanel extends JPanel implements DataChangeListener {
     private final ReminderController controller;
     private JTable table;
     private DefaultTableModel tableModel;
@@ -28,6 +29,9 @@ public class ReminderPanel extends JPanel {
         setLayout(new BorderLayout(10, 10));
         setBackground(new Color(236, 240, 241));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        
+        // Register as listener for data changes
+        controller.addDataChangeListener(this);
         
         initComponents();
         refreshTable();
@@ -44,7 +48,7 @@ public class ReminderPanel extends JPanel {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
 
-        JLabel titleLabel = new JLabel("⏰ Reminder Management");
+        JLabel titleLabel = new JLabel("Reminder Management");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
         titleLabel.setForeground(new Color(52, 73, 94));
 
@@ -137,15 +141,15 @@ public class ReminderPanel extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
         panel.setOpaque(false);
 
-        JButton addButton = createStyledButton("➕ Add Reminder", new Color(46, 204, 113));
+        JButton addButton = createStyledButton("Add Reminder", new Color(46, 204, 113));
         addButton.addActionListener(e -> showAddReminderDialog());
         panel.add(addButton);
 
-        JButton editButton = createStyledButton("✏️ Edit", new Color(52, 152, 219));
+        JButton editButton = createStyledButton("Edit", new Color(52, 152, 219));
         editButton.addActionListener(e -> editReminder());
         panel.add(editButton);
 
-        JButton deleteButton = createStyledButton("🗑️ Delete", new Color(231, 76, 60));
+        JButton deleteButton = createStyledButton("Delete", new Color(231, 76, 60));
         deleteButton.addActionListener(e -> deleteReminder());
         panel.add(deleteButton);
 
@@ -153,11 +157,11 @@ public class ReminderPanel extends JPanel {
         markTakenButton.addActionListener(e -> markAsTaken());
         panel.add(markTakenButton);
 
-        JButton snoozeButton = createStyledButton("⏰ Snooze 5min", new Color(241, 196, 15));
+        JButton snoozeButton = createStyledButton("Snooze 5min", new Color(241, 196, 15));
         snoozeButton.addActionListener(e -> snoozeReminder());
         panel.add(snoozeButton);
 
-        JButton refreshButton = createStyledButton("🔄 Refresh", new Color(155, 89, 182));
+        JButton refreshButton = createStyledButton("Refresh", new Color(155, 89, 182));
         refreshButton.addActionListener(e -> refreshTable());
         panel.add(refreshButton);
 
@@ -213,7 +217,7 @@ public class ReminderPanel extends JPanel {
         dialog.add(formPanel, BorderLayout.CENTER);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        JButton saveButton = createStyledButton("💾 Save", new Color(46, 204, 113));
+        JButton saveButton = createStyledButton("Save", new Color(46, 204, 113));
         saveButton.addActionListener(e -> {
             try {
                 String name = nameField.getText().trim();
@@ -255,7 +259,7 @@ public class ReminderPanel extends JPanel {
         });
         buttonPanel.add(saveButton);
 
-        JButton cancelButton = createStyledButton("❌ Cancel", new Color(231, 76, 60));
+        JButton cancelButton = createStyledButton("Cancel", new Color(231, 76, 60));
         cancelButton.addActionListener(e -> dialog.dispose());
         buttonPanel.add(cancelButton);
 
@@ -304,7 +308,7 @@ public class ReminderPanel extends JPanel {
         dialog.add(formPanel, BorderLayout.CENTER);
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        JButton saveButton = createStyledButton("💾 Update", new Color(52, 152, 219));
+        JButton saveButton = createStyledButton("Update", new Color(52, 152, 219));
         saveButton.addActionListener(e -> {
             try {
                 String name = nameField.getText().trim();
@@ -337,7 +341,7 @@ public class ReminderPanel extends JPanel {
         });
         buttonPanel.add(saveButton);
 
-        JButton cancelButton = createStyledButton("❌ Cancel", new Color(231, 76, 60));
+        JButton cancelButton = createStyledButton("Cancel", new Color(231, 76, 60));
         cancelButton.addActionListener(e -> dialog.dispose());
         buttonPanel.add(cancelButton);
 
@@ -431,5 +435,29 @@ public class ReminderPanel extends JPanel {
      */
     public void cleanup() {
         stopAutoRefresh();
+        controller.removeDataChangeListener(this);
+    }
+    
+    // DataChangeListener implementation - auto-refresh UI when data changes
+    @Override
+    public void onMedicineDataChanged() {
+        // Reminder panel doesn't directly depend on medicine changes
+    }
+    
+    @Override
+    public void onReminderDataChanged() {
+        SwingUtilities.invokeLater(() -> {
+            refreshTable();
+        });
+    }
+    
+    @Override
+    public void onInventoryDataChanged() {
+        // Reminder panel doesn't display inventory
+    }
+    
+    @Override
+    public void onHistoryDataChanged() {
+        // Reminder panel doesn't display history
     }
 }

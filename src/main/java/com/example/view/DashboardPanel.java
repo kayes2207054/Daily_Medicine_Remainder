@@ -51,7 +51,7 @@ public class DashboardPanel extends JPanel {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
 
-        JLabel welcomeLabel = new JLabel("🏥 DailyDose Dashboard");
+        JLabel welcomeLabel = new JLabel("DailyDose Dashboard");
         welcomeLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
         welcomeLabel.setForeground(new Color(52, 73, 94));
 
@@ -79,13 +79,13 @@ public class DashboardPanel extends JPanel {
         int totalDoses = takenToday + missedToday;
         double adherence = totalDoses > 0 ? (takenToday * 100.0 / totalDoses) : 0;
 
-        panel.add(createStatCard("💊 Total Medicines", String.valueOf(totalMedicines), new Color(52, 152, 219)));
-        panel.add(createStatCard("⏰ Pending Reminders", String.valueOf(pendingReminders), new Color(241, 196, 15)));
-        panel.add(createStatCard("📦 Low Stock Items", String.valueOf(lowStock), new Color(231, 76, 60)));
+        panel.add(createStatCard("Total Medicines", String.valueOf(totalMedicines), new Color(52, 152, 219)));
+        panel.add(createStatCard("Pending Reminders", String.valueOf(pendingReminders), new Color(241, 196, 15)));
+        panel.add(createStatCard("Low Stock Items", String.valueOf(lowStock), new Color(231, 76, 60)));
         panel.add(createStatCard("✅ Taken Today", String.valueOf(takenToday), new Color(46, 204, 113)));
         panel.add(createStatCard("❌ Missed Today", String.valueOf(missedToday), new Color(231, 76, 60)));
-        panel.add(createStatCard("📊 Total Doses Today", String.valueOf(totalDoses), new Color(155, 89, 182)));
-        panel.add(createStatCard("📈 Adherence Rate", String.format("%.1f%%", adherence), new Color(26, 188, 156)));
+        panel.add(createStatCard("Total Doses Today", String.valueOf(totalDoses), new Color(155, 89, 182)));
+        panel.add(createStatCard("Adherence Rate", String.format("%.1f%%", adherence), new Color(26, 188, 156)));
         panel.add(createStatCard("📅 Active Days", "30 days", new Color(52, 73, 94)));
 
         return panel;
@@ -124,7 +124,7 @@ public class DashboardPanel extends JPanel {
         panel.setOpaque(false);
         panel.setPreferredSize(new Dimension(0, 200));
 
-        JLabel titleLabel = new JLabel("📋 Recent Activity (Last 7 Days)");
+        JLabel titleLabel = new JLabel("Recent Activity (Last 7 Days)");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         titleLabel.setForeground(new Color(52, 73, 94));
 

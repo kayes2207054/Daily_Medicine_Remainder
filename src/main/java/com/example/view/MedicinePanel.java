@@ -26,11 +26,11 @@ public class MedicinePanel extends JPanel {
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
         topPanel.setOpaque(false);
         
-        JButton addButton = createModernButton("➕ Add Medicine", new Color(88, 86, 214), new Color(108, 106, 234));
+        JButton addButton = createModernButton("Add Medicine", new Color(88, 86, 214), new Color(108, 106, 234));
         addButton.addActionListener(e -> addMedicine());
         topPanel.add(addButton);
         
-        JButton refreshButton = createModernButton("🔄 Refresh", new Color(52, 152, 219), new Color(41, 128, 185));
+        JButton refreshButton = createModernButton("Refresh", new Color(52, 152, 219), new Color(41, 128, 185));
         refreshButton.addActionListener(e -> refreshTable());
         topPanel.add(refreshButton);
         

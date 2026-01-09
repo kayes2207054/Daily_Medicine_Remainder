@@ -4,6 +4,8 @@ import com.example.DailyDoseApp;
 import com.example.controller.HistoryController;
 import com.example.controller.UserController;
 import com.example.model.*;
+import com.example.utils.DataChangeListener;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -26,7 +28,7 @@ import java.util.stream.Collectors;
  * 
  * অভিভাবক ড্যাশবোর্ড কন্ট্রোলার - রোগীদের ঔষধ মেনে চলা নিরীক্ষণ করার ইন্টারফেস
  */
-public class GuardianDashboardController {
+public class GuardianDashboardController implements DataChangeListener {
     private static final Logger logger = LoggerFactory.getLogger(GuardianDashboardController.class);
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
@@ -95,6 +97,9 @@ public class GuardianDashboardController {
         if (currentUser != null) {
             userLabel.setText("Welcome, " + currentUser.getFullName());
         }
+        
+        // Register as listener for data changes
+        historyController.addDataChangeListener(this);
         
         // Initialize tables
         initializePatientsTable();
@@ -336,7 +341,7 @@ public class GuardianDashboardController {
                     profileStatusLabel.setText("✅ Active");
                     profileStatusLabel.setStyle("-fx-text-fill: #2ecc71; -fx-font-weight: bold;");
                 } else {
-                    profileStatusLabel.setText("❌ Inactive");
+                    profileStatusLabel.setText("Inactive");
                     profileStatusLabel.setStyle("-fx-text-fill: #e74c3c; -fx-font-weight: bold;");
                 }
             }
@@ -423,7 +428,7 @@ public class GuardianDashboardController {
         );
         
         // Type icon
-        String icon = notification.getType() == Notification.Type.DOSE_TAKEN ? "✅" : "❌";
+        String icon = notification.getType() == Notification.Type.DOSE_TAKEN ? "[Taken]" : "[Missed]";
         
         Label titleLabel = new Label(icon + " " + notification.getMessage());
         titleLabel.setFont(Font.font("System Bold", 14));
@@ -434,7 +439,7 @@ public class GuardianDashboardController {
         Label timeLabel = new Label(notification.getCreatedAt().format(DATETIME_FORMAT));
         timeLabel.setStyle("-fx-text-fill: #95a5a6; -fx-font-size: 11;");
         
-        Button markReadButton = new Button("✓ Mark Read");
+        Button markReadButton = new Button("Mark Read");
         markReadButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 11;");
         markReadButton.setVisible(!notification.isRead());
         markReadButton.setOnAction(e -> {
@@ -502,5 +507,31 @@ public class GuardianDashboardController {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+    
+    // DataChangeListener implementation - auto-refresh UI when data changes
+    @Override
+    public void onMedicineDataChanged() {
+        // Guardian doesn't directly view medicines, no action needed
+    }
+    
+    @Override
+    public void onReminderDataChanged() {
+        // Guardian doesn't directly view reminders, no action needed
+    }
+    
+    @Override
+    public void onInventoryDataChanged() {
+        // Guardian doesn't directly view inventory, no action needed
+    }
+    
+    @Override
+    public void onHistoryDataChanged() {
+        Platform.runLater(() -> {
+            if (selectedPatientId > 0) {
+                loadPatientHistory();
+            }
+            loadNotifications();
+        });
     }
 }

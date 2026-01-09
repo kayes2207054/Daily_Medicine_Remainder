@@ -2,6 +2,7 @@ package com.example.controller;
 
 import com.example.database.DatabaseManager;
 import com.example.model.DoseHistory;
+import com.example.utils.DataChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +21,7 @@ public class HistoryController {
     private static final Logger logger = LoggerFactory.getLogger(HistoryController.class);
     private DatabaseManager dbManager;
     private List<DoseHistory> historyList;
+    private List<DataChangeListener> listeners = new ArrayList<>();
 
     public HistoryController() {
         this.dbManager = DatabaseManager.getInstance();
@@ -49,6 +51,7 @@ public class HistoryController {
             history.setId(id);
             historyList.add(history);
             logger.info("History record added for: " + history.getMedicineName());
+            notifyHistoryDataChanged();
         }
         return id;
     }
@@ -71,6 +74,7 @@ public class HistoryController {
                 }
             }
             logger.info("History record updated");
+            notifyHistoryDataChanged();
         }
         return success;
     }
@@ -83,6 +87,7 @@ public class HistoryController {
         if (success) {
             historyList.removeIf(h -> h.getId() == historyId);
             logger.info("History record deleted with ID: " + historyId);
+            notifyHistoryDataChanged();
         }
         return success;
     }
@@ -267,5 +272,34 @@ public class HistoryController {
     public void refresh() {
         loadHistory();
         logger.info("History list refreshed");
+    }
+    
+    /**
+     * Add data change listener
+     */
+    public void addDataChangeListener(DataChangeListener listener) {
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+    
+    /**
+     * Remove data change listener
+     */
+    public void removeDataChangeListener(DataChangeListener listener) {
+        listeners.remove(listener);
+    }
+    
+    /**
+     * Notify all listeners that history data has changed
+     */
+    private void notifyHistoryDataChanged() {
+        for (DataChangeListener listener : listeners) {
+            try {
+                listener.onHistoryDataChanged();
+            } catch (Exception e) {
+                logger.error("Error notifying listener", e);
+            }
+        }
     }
 }

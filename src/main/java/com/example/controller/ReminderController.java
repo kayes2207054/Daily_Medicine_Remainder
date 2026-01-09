@@ -7,6 +7,7 @@ import com.example.model.Reminder;
 import com.example.model.Reminder.Status;
 import com.example.controller.InventoryController;
 import com.example.controller.HistoryController;
+import com.example.utils.DataChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +42,7 @@ public class ReminderController {
     private final DatabaseManager dbManager;
     private InventoryController inventoryController;
     private HistoryController historyController;
+    private List<DataChangeListener> listeners = new ArrayList<>();
     // Basic alarm timer (student-level): checks every second and beeps until user acknowledges
     private Timer alarmTimer;
     private final Set<Integer> alarmingReminderIds = Collections.synchronizedSet(new HashSet<>());
@@ -314,6 +316,7 @@ public class ReminderController {
         }
         reminders.add(reminder);
         logger.info("Reminder added: {} at {}", reminder.getMedicineName(), reminder.getReminderTime());
+        notifyReminderDataChanged();
         return reminder;
     }
 
@@ -322,6 +325,7 @@ public class ReminderController {
         if (removed) {
             reminders.removeIf(r -> r.getId() == reminderId);
             logger.info("Reminder deleted: {}", reminderId);
+            notifyReminderDataChanged();
         }
         return removed;
     }
@@ -336,6 +340,7 @@ public class ReminderController {
             for (int i = 0; i < reminders.size(); i++) {
                 if (reminders.get(i).getId() == reminder.getId()) {
                     reminders.set(i, reminder);
+                    notifyReminderDataChanged();
                     return true;
                 }
             }
@@ -448,5 +453,34 @@ public class ReminderController {
         stopBasicAlarmTimer();
         alarmingReminderIds.clear();
         logger.info("ReminderController cleanup completed");
+    }
+    
+    /**
+     * Add data change listener
+     */
+    public void addDataChangeListener(DataChangeListener listener) {
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+    
+    /**
+     * Remove data change listener
+     */
+    public void removeDataChangeListener(DataChangeListener listener) {
+        listeners.remove(listener);
+    }
+    
+    /**
+     * Notify all listeners that reminder data has changed
+     */
+    private void notifyReminderDataChanged() {
+        for (DataChangeListener listener : listeners) {
+            try {
+                listener.onReminderDataChanged();
+            } catch (Exception e) {
+                logger.error("Error notifying listener", e);
+            }
+        }
     }
 }

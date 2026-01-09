@@ -119,7 +119,7 @@ public class AlarmService {
         Stage alarmStage = new Stage();
         alarmStage.initModality(Modality.APPLICATION_MODAL);
         alarmStage.initStyle(StageStyle.UTILITY);
-        alarmStage.setTitle("⏰ MEDICINE REMINDER");
+        alarmStage.setTitle("MEDICINE REMINDER");
         alarmStage.setAlwaysOnTop(true);
         
         // Content
@@ -129,7 +129,7 @@ public class AlarmService {
         content.setStyle("-fx-background-color: linear-gradient(to bottom, #e74c3c, #c0392b);");
         
         // Title
-        Label titleLabel = new Label("⏰ TIME TO TAKE YOUR MEDICINE!");
+        Label titleLabel = new Label("TIME TO TAKE YOUR MEDICINE!");
         titleLabel.setFont(Font.font("System Bold", 22));
         titleLabel.setStyle("-fx-text-fill: white;");
         
@@ -149,14 +149,14 @@ public class AlarmService {
         HBox buttonBox = new HBox(15);
         buttonBox.setAlignment(Pos.CENTER);
         
-        Button takenButton = createAlarmButton("✓ TAKEN", "#2ecc71", "#27ae60");
+        Button takenButton = createAlarmButton("TAKEN", "#2ecc71", "#27ae60");
         takenButton.setOnAction(e -> {
             stopAlarmSound();
             handleTaken(reminder);
             alarmStage.close();
         });
         
-        Button missedButton = createAlarmButton("✗ MISSED", "#e74c3c", "#c0392b");
+        Button missedButton = createAlarmButton("MISSED", "#e74c3c", "#c0392b");
         missedButton.setOnAction(e -> {
             stopAlarmSound();
             handleMissed(reminder);

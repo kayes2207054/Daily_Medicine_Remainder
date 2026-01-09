@@ -66,7 +66,7 @@ public class MainFrame extends JFrame {
         topPanel.setPreferredSize(new Dimension(0, 100));
         topPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
         
-        JLabel titleLabel = new JLabel("💊 DailyDose - Medicine Tracker");
+        JLabel titleLabel = new JLabel("DailyDose - Medicine Tracker");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
         titleLabel.setForeground(Color.WHITE);
         topPanel.add(titleLabel, BorderLayout.WEST);
@@ -96,11 +96,11 @@ public class MainFrame extends JFrame {
         
         // Add tabs
         tabbedPane.addTab("🏠 Dashboard", new DashboardPanel(medicineController, reminderController, inventoryController, historyController));
-        tabbedPane.addTab("💊 Medicines", new EnhancedMedicinePanel(medicineController));
-        tabbedPane.addTab("⏰ Reminders", new ReminderPanel(reminderController));
-        tabbedPane.addTab("📦 Inventory", new InventoryPanel(inventoryController));
-        tabbedPane.addTab("📊 History", new HistoryPanel(historyController));
-        tabbedPane.addTab("⚙️ Settings", new SettingsPanel());
+        tabbedPane.addTab("Medicines", new EnhancedMedicinePanel(medicineController));
+        tabbedPane.addTab("Reminders", new ReminderPanel(reminderController));
+        tabbedPane.addTab("Inventory", new InventoryPanel(inventoryController));
+        tabbedPane.addTab("History", new HistoryPanel(historyController));
+        tabbedPane.addTab("Settings", new SettingsPanel());
         
         mainPanel.add(tabbedPane, BorderLayout.CENTER);
         add(mainPanel);

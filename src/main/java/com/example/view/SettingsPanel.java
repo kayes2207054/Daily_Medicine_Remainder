@@ -29,7 +29,7 @@ public class SettingsPanel extends JPanel {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
 
-        JLabel titleLabel = new JLabel("⚙️ Settings");
+        JLabel titleLabel = new JLabel("Settings");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
         titleLabel.setForeground(new Color(52, 73, 94));
 
@@ -92,7 +92,7 @@ public class SettingsPanel extends JPanel {
     }
 
     private JPanel createNotificationSection() {
-        JPanel section = createSection("🔔 Notifications");
+        JPanel section = createSection("Notifications");
 
         // Sound enabled
         soundEnabledCheck = new JCheckBox("Enable alarm sound");
@@ -122,7 +122,7 @@ public class SettingsPanel extends JPanel {
     }
 
     private JPanel createDatabaseSection() {
-        JPanel section = createSection("💾 Database");
+        JPanel section = createSection("Database");
 
         // Database path
         JPanel pathPanel = new JPanel(new BorderLayout(10, 10));
@@ -147,7 +147,7 @@ public class SettingsPanel extends JPanel {
         JPanel backupPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         backupPanel.setOpaque(false);
 
-        JButton backupButton = createStyledButton("💾 Backup Database", new Color(46, 204, 113));
+        JButton backupButton = createStyledButton("Backup Database", new Color(46, 204, 113));
         backupButton.addActionListener(e -> backupDatabase());
         backupPanel.add(backupButton);
 
@@ -187,11 +187,11 @@ public class SettingsPanel extends JPanel {
         panel.setOpaque(false);
         panel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 
-        JButton saveButton = createStyledButton("💾 Save Settings", new Color(46, 204, 113));
+        JButton saveButton = createStyledButton("Save Settings", new Color(46, 204, 113));
         saveButton.addActionListener(e -> saveSettings());
         panel.add(saveButton);
 
-        JButton resetButton = createStyledButton("🔄 Reset to Defaults", new Color(231, 76, 60));
+        JButton resetButton = createStyledButton("Reset to Defaults", new Color(231, 76, 60));
         resetButton.addActionListener(e -> resetSettings());
         panel.add(resetButton);
 

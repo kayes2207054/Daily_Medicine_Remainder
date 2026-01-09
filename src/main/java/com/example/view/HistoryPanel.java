@@ -2,13 +2,14 @@ package com.example.view;
 
 import com.example.controller.HistoryController;
 import com.example.model.DoseHistory;
+import com.example.utils.DataChangeListener;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
-public class HistoryPanel extends JPanel {
+public class HistoryPanel extends JPanel implements DataChangeListener {
     private final HistoryController controller;
     private JTable table;
     private DefaultTableModel tableModel;
@@ -16,6 +17,10 @@ public class HistoryPanel extends JPanel {
     public HistoryPanel(HistoryController controller) {
         this.controller = controller;
         setLayout(new BorderLayout());
+        
+        // Register as listener for data changes
+        controller.addDataChangeListener(this);
+        
         initComponents();
         refreshTable();
     }
@@ -27,7 +32,7 @@ public class HistoryPanel extends JPanel {
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15));
         topPanel.setOpaque(false);
         
-        JButton refreshButton = createModernButton("🔄 Refresh", new Color(52, 152, 219), new Color(41, 128, 185));
+        JButton refreshButton = createModernButton("Refresh", new Color(52, 152, 219), new Color(41, 128, 185));
         refreshButton.addActionListener(e -> refreshTable());
         topPanel.add(refreshButton);
         
@@ -95,5 +100,28 @@ public class HistoryPanel extends JPanel {
                 h.getStatus()
             });
         }
+    }
+    
+    // DataChangeListener implementation - auto-refresh UI when data changes
+    @Override
+    public void onMedicineDataChanged() {
+        // History panel doesn't directly depend on medicine changes
+    }
+    
+    @Override
+    public void onReminderDataChanged() {
+        // History panel doesn't display reminders
+    }
+    
+    @Override
+    public void onInventoryDataChanged() {
+        // History panel doesn't display inventory
+    }
+    
+    @Override
+    public void onHistoryDataChanged() {
+        SwingUtilities.invokeLater(() -> {
+            refreshTable();
+        });
     }
 }

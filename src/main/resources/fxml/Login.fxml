@@ -15,7 +15,7 @@
     </padding>
     
     <!-- Title -->
-    <Label text="💊 DailyDose" styleClass="app-title">
+    <Label text="DailyDose" styleClass="app-title">
         <font>
             <Font name="System Bold" size="32"/>
         </font>
@@ -50,7 +50,7 @@
         <VBox spacing="10" alignment="CENTER" 
               style="-fx-background-color: rgba(255,255,255,0.25); -fx-background-radius: 12px; -fx-padding: 20px;">
             
-            <Label text="👤 SELECT YOUR ROLE 👨‍👧" 
+            <Label text="SELECT YOUR ROLE" 
                    style="-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 16px;"/>
             
             <Label text="আপনার ভূমিকা বেছে নিন" 
@@ -71,7 +71,7 @@
                     </RadioButton>
                     <Label text="PATIENT" 
                            style="-fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 16px;"/>
-                    <Label text="👤 রোগী" 
+                    <Label text="রোগী" 
                            style="-fx-text-fill: white; -fx-font-size: 13px;"/>
                 </VBox>
                 

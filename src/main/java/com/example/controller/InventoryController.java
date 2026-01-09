@@ -2,6 +2,7 @@ package com.example.controller;
 
 import com.example.database.DatabaseManager;
 import com.example.model.Inventory;
+import com.example.utils.DataChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +20,7 @@ public class InventoryController {
     private static final Logger logger = LoggerFactory.getLogger(InventoryController.class);
     private DatabaseManager dbManager;
     private List<Inventory> inventoryList;
+    private List<DataChangeListener> listeners = new ArrayList<>();
 
     public InventoryController() {
         this.dbManager = DatabaseManager.getInstance();
@@ -48,6 +50,7 @@ public class InventoryController {
             inventory.setId(id);
             inventoryList.add(inventory);
             logger.info("Inventory added for: " + inventory.getMedicineName());
+            notifyInventoryDataChanged();
         }
         return id;
     }
@@ -70,6 +73,7 @@ public class InventoryController {
                 }
             }
             logger.info("Inventory updated for: " + inventory.getMedicineName());
+            notifyInventoryDataChanged();
         }
         return success;
     }
@@ -82,6 +86,7 @@ public class InventoryController {
         if (success) {
             inventoryList.removeIf(inv -> inv.getId() == inventoryId);
             logger.info("Inventory deleted with ID: " + inventoryId);
+            notifyInventoryDataChanged();
         }
         return success;
     }
@@ -181,5 +186,34 @@ public class InventoryController {
     public void refresh() {
         loadInventory();
         logger.info("Inventory list refreshed");
+    }
+    
+    /**
+     * Add data change listener
+     */
+    public void addDataChangeListener(DataChangeListener listener) {
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+    
+    /**
+     * Remove data change listener
+     */
+    public void removeDataChangeListener(DataChangeListener listener) {
+        listeners.remove(listener);
+    }
+    
+    /**
+     * Notify all listeners that inventory data has changed
+     */
+    private void notifyInventoryDataChanged() {
+        for (DataChangeListener listener : listeners) {
+            try {
+                listener.onInventoryDataChanged();
+            } catch (Exception e) {
+                logger.error("Error notifying listener", e);
+            }
+        }
     }
 }

@@ -89,7 +89,7 @@ public class LoginFrame extends JFrame {
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setOpaque(false);
         
-        JLabel logo = new JLabel("💊");
+        JLabel logo = new JLabel("");
         logo.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 70));
         logo.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(logo);

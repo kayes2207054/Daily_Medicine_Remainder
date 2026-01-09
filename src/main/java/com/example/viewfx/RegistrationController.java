@@ -116,7 +116,7 @@ public class RegistrationController {
      * Show error message
      */
     private void showError(String message) {
-        messageLabel.setText("❌ " + message);
+        messageLabel.setText(message);
         messageLabel.setStyle("-fx-text-fill: #e74c3c; -fx-background-color: white; -fx-padding: 10px; -fx-background-radius: 6px;");
         messageLabel.setVisible(true);
     }

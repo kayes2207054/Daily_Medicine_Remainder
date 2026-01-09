@@ -63,7 +63,7 @@
             </Tab>
             
             <!-- Patient Details Tab -->
-            <Tab text="📊 Patient History">
+            <Tab text="Patient History">
                 <VBox spacing="20">
                     <padding>
                         <Insets top="25" right="25" bottom="25" left="25"/>
@@ -73,7 +73,7 @@
                     <HBox spacing="15" alignment="CENTER_LEFT">
                         <Label text="Select Patient:"/>
                         <ComboBox fx:id="patientComboBox" promptText="Choose a patient" prefWidth="250"/>
-                        <Button text="📊 View History" onAction="#loadPatientHistory" styleClass="secondary-button"/>
+                        <Button text="View History" onAction="#loadPatientHistory" styleClass="secondary-button"/>
                         <Region HBox.hgrow="ALWAYS"/>
                         <Label text="Date Range:"/>
                         <DatePicker fx:id="histStartDate" promptText="Start"/>
@@ -84,7 +84,7 @@
                     
                     <!-- Patient Profile Card -->
                     <VBox fx:id="patientProfileCard" styleClass="card" spacing="15" visible="false" managed="false">
-                        <Label text="👤 Patient Profile" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
+                        <Label text="Patient Profile" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;"/>
                         <GridPane hgap="20" vgap="12">
                             <columnConstraints>
                                 <ColumnConstraints minWidth="120" halignment="RIGHT"/>
@@ -138,7 +138,7 @@
                     
                     <!-- History Table -->
                     <VBox styleClass="card" VBox.vgrow="ALWAYS">
-                        <Label text="📋 Dose History" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
+                        <Label text="Dose History" style="-fx-font-size: 18px; -fx-font-weight: bold;"/>
                         <TableView fx:id="patientHistoryTable" VBox.vgrow="ALWAYS">
                             <padding>
                                 <Insets top="10"/>
@@ -156,7 +156,7 @@
             </Tab>
             
             <!-- Notifications Tab -->
-            <Tab text="🔔 Notifications">
+            <Tab text="Notifications">
                 <VBox spacing="20">
                     <padding>
                         <Insets top="25" right="25" bottom="25" left="25"/>

@@ -2,6 +2,7 @@ package com.example.view;
 
 import com.example.controller.*;
 import com.example.model.*;
+import com.example.utils.DataChangeListener;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -14,7 +15,7 @@ import java.util.List;
 /**
  * Enhanced Medicine Panel with Search, Filter, and Better UI
  */
-public class EnhancedMedicinePanel extends JPanel {
+public class EnhancedMedicinePanel extends JPanel implements DataChangeListener {
     private final MedicineController controller;
     private JTable medicineTable;
     private DefaultTableModel tableModel;
@@ -28,6 +29,9 @@ public class EnhancedMedicinePanel extends JPanel {
         setBackground(new Color(236, 240, 241));
         setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
+        // Register as listener for data changes
+        controller.addDataChangeListener(this);
+
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(createTablePanel(), BorderLayout.CENTER);
         add(createButtonPanel(), BorderLayout.SOUTH);
@@ -40,7 +44,7 @@ public class EnhancedMedicinePanel extends JPanel {
         panel.setOpaque(false);
 
         // Title
-        JLabel titleLabel = new JLabel("💊 Medicine Management");
+        JLabel titleLabel = new JLabel("Medicine Management");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
         titleLabel.setForeground(new Color(52, 73, 94));
 
@@ -65,7 +69,7 @@ public class EnhancedMedicinePanel extends JPanel {
         filterCombo.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         filterCombo.addActionListener(e -> filterMedicines());
 
-        searchPanel.add(new JLabel("🔍 Search:"));
+        searchPanel.add(new JLabel("Search:"));
         searchPanel.add(searchField);
         searchPanel.add(new JLabel("Filter:"));
         searchPanel.add(filterCombo);
@@ -126,10 +130,10 @@ public class EnhancedMedicinePanel extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
         panel.setOpaque(false);
 
-        JButton addBtn = createStyledButton("➕ Add Medicine", new Color(46, 204, 113));
-        JButton editBtn = createStyledButton("✏️ Edit Medicine", new Color(52, 152, 219));
-        JButton deleteBtn = createStyledButton("🗑️ Delete Medicine", new Color(231, 76, 60));
-        JButton refreshBtn = createStyledButton("🔄 Refresh", new Color(149, 165, 166));
+        JButton addBtn = createStyledButton("Add Medicine", new Color(46, 204, 113));
+        JButton editBtn = createStyledButton("Edit Medicine", new Color(52, 152, 219));
+        JButton deleteBtn = createStyledButton("Delete Medicine", new Color(231, 76, 60));
+        JButton refreshBtn = createStyledButton("Refresh", new Color(149, 165, 166));
 
         addBtn.addActionListener(e -> showAddDialog());
         editBtn.addActionListener(e -> editMedicine());
@@ -240,8 +244,8 @@ public class EnhancedMedicinePanel extends JPanel {
         formPanel.add(new JScrollPane(instructionsArea));
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton saveBtn = createStyledButton("💾 Save", new Color(46, 204, 113));
-        JButton cancelBtn = createStyledButton("❌ Cancel", new Color(149, 165, 166));
+        JButton saveBtn = createStyledButton("Save", new Color(46, 204, 113));
+        JButton cancelBtn = createStyledButton("Cancel", new Color(149, 165, 166));
 
         saveBtn.addActionListener(e -> {
             String name = nameField.getText().trim();
@@ -255,10 +259,13 @@ public class EnhancedMedicinePanel extends JPanel {
             }
 
             Medicine medicine = new Medicine(name, dosage, frequency, instructions);
-            controller.addMedicine(medicine);
-            loadMedicines();
+            int id = controller.addMedicine(medicine);
             dialog.dispose();
-            JOptionPane.showMessageDialog(this, "✅ Medicine added successfully!");
+            if (id > 0) {
+                JOptionPane.showMessageDialog(this, "✅ Medicine added successfully!");
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to add medicine. It may already exist.");
+            }
         });
 
         cancelBtn.addActionListener(e -> dialog.dispose());
@@ -309,8 +316,8 @@ public class EnhancedMedicinePanel extends JPanel {
         formPanel.add(new JScrollPane(instructionsArea));
 
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton updateBtn = createStyledButton("💾 Update", new Color(52, 152, 219));
-        JButton cancelBtn = createStyledButton("❌ Cancel", new Color(149, 165, 166));
+        JButton updateBtn = createStyledButton("Update", new Color(52, 152, 219));
+        JButton cancelBtn = createStyledButton("Cancel", new Color(149, 165, 166));
 
         updateBtn.addActionListener(e -> {
             medicine.setName(nameField.getText().trim());
@@ -318,10 +325,13 @@ public class EnhancedMedicinePanel extends JPanel {
             medicine.setFrequency((String) freqCombo.getSelectedItem());
             medicine.setInstructions(instructionsArea.getText().trim());
 
-            controller.updateMedicine(medicine);
-            loadMedicines();
+            boolean success = controller.updateMedicine(medicine);
             dialog.dispose();
-            JOptionPane.showMessageDialog(this, "✅ Medicine updated successfully!");
+            if (success) {
+                JOptionPane.showMessageDialog(this, "✅ Medicine updated successfully!");
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to update medicine.");
+            }
         });
 
         cancelBtn.addActionListener(e -> dialog.dispose());
@@ -353,9 +363,35 @@ public class EnhancedMedicinePanel extends JPanel {
         );
 
         if (confirm == JOptionPane.YES_OPTION) {
-            controller.deleteMedicine(id);
-            loadMedicines();
-            JOptionPane.showMessageDialog(this, "✅ Medicine deleted successfully!");
+            boolean success = controller.deleteMedicine(id);
+            if (success) {
+                JOptionPane.showMessageDialog(this, "✅ Medicine deleted successfully!");
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to delete medicine.");
+            }
         }
+    }
+    
+    // DataChangeListener implementation - auto-refresh UI when data changes
+    @Override
+    public void onMedicineDataChanged() {
+        SwingUtilities.invokeLater(() -> {
+            loadMedicines();
+        });
+    }
+    
+    @Override
+    public void onReminderDataChanged() {
+        // Medicine panel doesn't display reminders, no action needed
+    }
+    
+    @Override
+    public void onInventoryDataChanged() {
+        // Medicine panel doesn't display inventory, no action needed
+    }
+    
+    @Override
+    public void onHistoryDataChanged() {
+        // Medicine panel doesn't display history, no action needed
     }
 }
