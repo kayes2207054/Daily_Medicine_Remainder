@@ -106,6 +106,7 @@ public class MedicineViewController {
         TextField name = new TextField(existing != null ? existing.getName() : "");
         TextField dosage = new TextField(existing != null ? existing.getDosage() : "");
         TextField freq = new TextField(existing != null ? existing.getFrequency() : "");
+        TextField quantity = new TextField(existing != null ? String.valueOf(existing.getQuantity()) : "0");
         TextArea instr = new TextArea(existing != null ? existing.getInstructions() : "");
         instr.setPrefRowCount(3);
 
@@ -113,18 +114,25 @@ public class MedicineViewController {
         grid.setHgap(8); grid.setVgap(8);
         grid.addRow(0, new Label("নাম"), name);
         grid.addRow(1, new Label("ডোজ"), dosage);
-        grid.addRow(2, new Label("ফ্রিকোয়েন্সি"), freq);
-        grid.addRow(3, new Label("নির্দেশনা"), instr);
+        grid.addRow(2, new Label("ফ্রিকোয়েন্সি"), freq);
+        grid.addRow(3, new Label("পরিমাণ (ইউনিট)"), quantity);
+        grid.addRow(4, new Label("নির্দেশনা"), instr);
         dialog.getDialogPane().setContent(grid);
 
         dialog.setResultConverter(btn -> {
             if (btn == ButtonType.OK) {
-                Medicine m = (existing != null) ? existing : new Medicine();
-                m.setName(name.getText().trim());
-                m.setDosage(dosage.getText().trim());
-                m.setFrequency(freq.getText().trim());
-                m.setInstructions(instr.getText().trim());
-                return m;
+                try {
+                    Medicine m = (existing != null) ? existing : new Medicine();
+                    m.setName(name.getText().trim());
+                    m.setDosage(dosage.getText().trim());
+                    m.setFrequency(freq.getText().trim());
+                    m.setQuantity(Integer.parseInt(quantity.getText().trim()));
+                    m.setInstructions(instr.getText().trim());
+                    return m;
+                } catch (NumberFormatException e) {
+                    alertError("পরিমাণ একটি সংখ্যা হতে হবে");
+                    return null;
+                }
             }
             return null;
         });

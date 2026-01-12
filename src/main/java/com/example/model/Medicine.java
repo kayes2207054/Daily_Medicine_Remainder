@@ -15,6 +15,7 @@ public class Medicine implements Serializable {
     private String dosage;
     private String frequency;  // "1 times", "2 times", "3 times" per day
     private String instructions;
+    private int quantity;  // Initial quantity of medicine units
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -35,6 +36,19 @@ public class Medicine implements Serializable {
         this.dosage = dosage;
         this.frequency = frequency;
         this.instructions = instructions;
+        this.quantity = 0;  // Default quantity
+    }
+
+    /**
+     * Constructor with quantity
+     */
+    public Medicine(String name, String dosage, String frequency, String instructions, int quantity) {
+        this();
+        this.name = name;
+        this.dosage = dosage;
+        this.frequency = frequency;
+        this.instructions = instructions;
+        this.quantity = quantity;
     }
 
     /**
@@ -97,6 +111,14 @@ public class Medicine implements Serializable {
 
     public void setUpdatedAt() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public int getQuantity() {
+        return quantity;
+    }
+
+    public void setQuantity(int quantity) {
+        this.quantity = quantity;
     }
 
     @Override

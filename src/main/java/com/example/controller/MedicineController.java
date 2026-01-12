@@ -2,10 +2,12 @@ package com.example.controller;
 
 import com.example.database.DatabaseManager;
 import com.example.model.Medicine;
+import com.example.model.Inventory;
 import com.example.utils.DataChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -55,6 +57,25 @@ public class MedicineController {
             medicine.setId(id);
             medicines.add(medicine);
             logger.info("Medicine added: " + medicine.getName() + " with ID: " + id);
+            
+            // Create inventory entry if quantity is provided
+            if (medicine.getQuantity() > 0) {
+                Inventory inventory = new Inventory();
+                inventory.setMedicineId(id);
+                inventory.setMedicineName(medicine.getName());
+                inventory.setQuantity(medicine.getQuantity());
+                inventory.setThreshold(10);  // Default threshold
+                inventory.setDailyUsage(1);  // Default daily usage
+                inventory.setLastRefillDate(LocalDate.now());
+                
+                int inventoryId = dbManager.addInventory(inventory);
+                if (inventoryId > 0) {
+                    logger.info("Inventory created for medicine: " + medicine.getName() + " with quantity: " + medicine.getQuantity());
+                } else {
+                    logger.warn("Failed to create inventory for medicine: " + medicine.getName());
+                }
+            }
+            
             notifyMedicineDataChanged();
         }
         return id;

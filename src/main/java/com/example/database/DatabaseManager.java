@@ -80,6 +80,7 @@ public class DatabaseManager {
                     "dosage TEXT NOT NULL," +
                     "frequency TEXT NOT NULL," +
                     "instructions TEXT," +
+                    "quantity INTEGER DEFAULT 0," +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                     "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
@@ -158,6 +159,14 @@ public class DatabaseManager {
                     "FOREIGN KEY(guardian_id) REFERENCES users(id) ON DELETE CASCADE," +
                     "FOREIGN KEY(patient_id) REFERENCES users(id) ON DELETE CASCADE)");
 
+            // Migration: Add quantity column if it doesn't exist
+            try {
+                stmt.execute("ALTER TABLE medicines ADD COLUMN quantity INTEGER DEFAULT 0");
+                logger.info("Added quantity column to medicines table");
+            } catch (SQLException e) {
+                // Column already exists, ignore
+            }
+
             logger.info("Database tables initialized successfully");
         } catch (SQLException e) {
             logger.error("Error initializing database", e);
@@ -170,12 +179,13 @@ public class DatabaseManager {
      * Add new medicine to database
      */
     public int addMedicine(Medicine medicine) {
-        String sql = "INSERT INTO medicines(name, dosage, frequency, instructions) VALUES(?, ?, ?, ?)";
+        String sql = "INSERT INTO medicines(name, dosage, frequency, instructions, quantity) VALUES(?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setString(1, medicine.getName());
             pstmt.setString(2, medicine.getDosage());
             pstmt.setString(3, medicine.getFrequency());
             pstmt.setString(4, medicine.getInstructions());
+            pstmt.setInt(5, medicine.getQuantity());
             pstmt.executeUpdate();
 
             ResultSet keys = pstmt.getGeneratedKeys();
@@ -203,6 +213,7 @@ public class DatabaseManager {
                 m.setDosage(rs.getString("dosage"));
                 m.setFrequency(rs.getString("frequency"));
                 m.setInstructions(rs.getString("instructions"));
+                m.setQuantity(rs.getInt("quantity"));
                 medicines.add(m);
             }
         } catch (SQLException e) {
@@ -226,6 +237,7 @@ public class DatabaseManager {
                 m.setDosage(rs.getString("dosage"));
                 m.setFrequency(rs.getString("frequency"));
                 m.setInstructions(rs.getString("instructions"));
+                m.setQuantity(rs.getInt("quantity"));
                 return m;
             }
         } catch (SQLException e) {
@@ -238,13 +250,14 @@ public class DatabaseManager {
      * Update medicine
      */
     public boolean updateMedicine(Medicine medicine) {
-        String sql = "UPDATE medicines SET name = ?, dosage = ?, frequency = ?, instructions = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+        String sql = "UPDATE medicines SET name = ?, dosage = ?, frequency = ?, instructions = ?, quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, medicine.getName());
             pstmt.setString(2, medicine.getDosage());
             pstmt.setString(3, medicine.getFrequency());
             pstmt.setString(4, medicine.getInstructions());
-            pstmt.setInt(5, medicine.getId());
+            pstmt.setInt(5, medicine.getQuantity());
+            pstmt.setInt(6, medicine.getId());
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             logger.error("Error updating medicine", e);

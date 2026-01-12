@@ -95,7 +95,7 @@ public class MainFrame extends JFrame {
         tabbedPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
         // Add tabs
-        tabbedPane.addTab("🏠 Dashboard", new DashboardPanel(medicineController, reminderController, inventoryController, historyController));
+        tabbedPane.addTab("Dashboard", new DashboardPanel(medicineController, reminderController, inventoryController, historyController));
         tabbedPane.addTab("Medicines", new EnhancedMedicinePanel(medicineController));
         tabbedPane.addTab("Reminders", new ReminderPanel(reminderController));
         tabbedPane.addTab("Inventory", new InventoryPanel(inventoryController));
