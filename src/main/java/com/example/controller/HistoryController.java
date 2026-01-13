@@ -6,17 +6,9 @@ import com.example.utils.DataChangeListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
-/**
- * HistoryController Class
- * Manages dose history tracking and adherence reporting.
- * Provides analytics on medication compliance.
- */
 public class HistoryController {
     private static final Logger logger = LoggerFactory.getLogger(HistoryController.class);
     private DatabaseManager dbManager;
@@ -29,277 +21,49 @@ public class HistoryController {
         loadHistory();
     }
 
-    /**
-     * Load all dose history from database
-     */
     public void loadHistory() {
         this.historyList = dbManager.getAllDoseHistory();
-        logger.info("Loaded " + historyList.size() + " history records from database");
     }
 
-    /**
-     * Add dose history record
-     */
     public int addHistory(DoseHistory history) {
-        if (history == null || history.getMedicineName() == null) {
-            logger.warn("Cannot add invalid history record");
-            return -1;
-        }
-
         int id = dbManager.addDoseHistory(history);
         if (id > 0) {
             history.setId(id);
-            historyList.add(history);
-            logger.info("History record added for: " + history.getMedicineName());
-            notifyHistoryDataChanged();
+            historyList.add(0, history); // Add to top
+            notifyDataChanged();
         }
         return id;
     }
 
-    /**
-     * Update dose history
-     */
-    public boolean updateHistory(DoseHistory history) {
-        if (history == null || history.getId() <= 0) {
-            logger.warn("Invalid history record for update");
-            return false;
-        }
-
-        boolean success = dbManager.updateDoseHistory(history);
-        if (success) {
-            for (int i = 0; i < historyList.size(); i++) {
-                if (historyList.get(i).getId() == history.getId()) {
-                    historyList.set(i, history);
-                    break;
-                }
-            }
-            logger.info("History record updated");
-            notifyHistoryDataChanged();
-        }
-        return success;
-    }
-
-    /**
-     * Delete history record by ID
-     */
-    public boolean deleteHistory(int historyId) {
-        boolean success = dbManager.deleteDoseHistory(historyId);
-        if (success) {
-            historyList.removeIf(h -> h.getId() == historyId);
-            logger.info("History record deleted with ID: " + historyId);
-            notifyHistoryDataChanged();
-        }
-        return success;
-    }
-
-    /**
-     * Get all history records
-     */
-    public List<DoseHistory> getAllHistory() {
+    public List<DoseHistory> getHistoryList() {
         return new ArrayList<>(historyList);
     }
-
-    /**
-     * Get history for specific medicine
-     */
-    public List<DoseHistory> getHistoryByMedicineId(int medicineId) {
-        return dbManager.getHistoryByMedicineId(medicineId);
-    }
-
-    /**
-     * Get history for specific date
-     */
-    public List<DoseHistory> getHistoryByDate(LocalDate date) {
-        return historyList.stream()
-                .filter(h -> h.getDate().equals(date))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get history for date range
-     */
-    public List<DoseHistory> getHistoryByDateRange(LocalDate startDate, LocalDate endDate) {
-        return dbManager.getHistoryByDateRange(startDate, endDate);
-    }
-
-    /**
-     * Get history by status (Taken, Missed, Pending)
-     */
-    public List<DoseHistory> getHistoryByStatus(String status) {
-        return historyList.stream()
-                .filter(h -> h.getStatus().equals(status))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Calculate adherence percentage for medicine in date range
-     */
-    public double getAdherencePercentage(int medicineId, LocalDate startDate, LocalDate endDate) {
-        return dbManager.getAdherencePercentage(medicineId, startDate, endDate);
-    }
-
-    /**
-     * Get today's history
-     */
-    public List<DoseHistory> getTodayHistory() {
-        return getHistoryByDate(LocalDate.now());
-    }
-
-    /**
-     * Get this week's history
-     */
-    public List<DoseHistory> getThisWeekHistory() {
-        LocalDate today = LocalDate.now();
-        LocalDate weekAgo = today.minusDays(7);
-        return getHistoryByDateRange(weekAgo, today);
-    }
-
-    /**
-     * Get this month's history
-     */
-    public List<DoseHistory> getThisMonthHistory() {
-        LocalDate today = LocalDate.now();
-        LocalDate monthAgo = today.minusMonths(1);
-        return getHistoryByDateRange(monthAgo, today);
-    }
-
-    /**
-     * Count doses taken today
-     */
-    public int getTakenTodayCount() {
-        return (int) getTodayHistory().stream()
-                .filter(h -> DoseHistory.STATUS_TAKEN.equals(h.getStatus()))
-                .count();
-    }
-
-    /**
-     * Count doses missed today
-     */
-    public int getMissedTodayCount() {
-        return (int) getTodayHistory().stream()
-                .filter(h -> DoseHistory.STATUS_MISSED.equals(h.getStatus()))
-                .count();
-    }
-
-    /**
-     * Get recent history for last N days
-     */
-    public List<DoseHistory> getRecentHistory(int days) {
-        LocalDate startDate = LocalDate.now().minusDays(days);
-        LocalDate endDate = LocalDate.now();
-        return getHistoryByDateRange(startDate, endDate);
-    }
-
-    /**
-     * Count pending doses today
-     */
-    public long getPendingTodayCount() {
-        return getTodayHistory().stream()
-                .filter(h -> DoseHistory.STATUS_PENDING.equals(h.getStatus()))
-                .count();
-    }
-
-    /**
-     * Get doses grouped by medicine for a date
-     */
-    public Map<String, List<DoseHistory>> getGroupedByMedicine(LocalDate date) {
-        return getHistoryByDate(date).stream()
-                .collect(Collectors.groupingBy(DoseHistory::getMedicineName));
-    }
-
-    /**
-     * Get daily statistics for a date range
-     */
-    public Map<LocalDate, Map<String, Long>> getDailyStatistics(LocalDate startDate, LocalDate endDate) {
-        return getHistoryByDateRange(startDate, endDate).stream()
-                .collect(Collectors.groupingBy(
-                        DoseHistory::getDate,
-                        Collectors.groupingBy(DoseHistory::getStatus, Collectors.counting())
-                ));
-    }
-
-    /**
-     * Mark a dose as taken
-     */
-    public boolean markDoseAsTaken(int historyId) {
-        DoseHistory history = historyList.stream()
-                .filter(h -> h.getId() == historyId)
-                .findFirst()
-                .orElse(null);
-        
-        if (history != null) {
-            history.setStatus(DoseHistory.STATUS_TAKEN);
-            return updateHistory(history);
-        }
-        return false;
-    }
-
-    /**
-     * Mark a dose as missed
-     */
-    public boolean markDoseAsMissed(int historyId) {
-        DoseHistory history = historyList.stream()
-                .filter(h -> h.getId() == historyId)
-                .findFirst()
-                .orElse(null);
-        
-        if (history != null) {
-            history.setStatus(DoseHistory.STATUS_MISSED);
-            return updateHistory(history);
-        }
-        return false;
-    }
-
-    /**
-     * Mark a dose as pending
-     */
-    public boolean markDoseAsPending(int historyId) {
-        DoseHistory history = historyList.stream()
-                .filter(h -> h.getId() == historyId)
-                .findFirst()
-                .orElse(null);
-        
-        if (history != null) {
-            history.setStatus(DoseHistory.STATUS_PENDING);
-            return updateHistory(history);
-        }
-        return false;
-    }
-
-    /**
-     * Refresh history from database
-     */
-    public void refresh() {
-        loadHistory();
-        logger.info("History list refreshed");
-    }
     
-    /**
-     * Add data change listener
-     */
     public void addDataChangeListener(DataChangeListener listener) {
-        if (!listeners.contains(listener)) {
-            listeners.add(listener);
-        }
+        listeners.add(listener);
     }
     
-    /**
-     * Remove data change listener
-     */
-    public void removeDataChangeListener(DataChangeListener listener) {
-        listeners.remove(listener);
+    private void notifyDataChanged() {
+        for (DataChangeListener l : listeners) l.onHistoryDataChanged();
     }
     
-    /**
-     * Notify all listeners that history data has changed
-     */
-    private void notifyHistoryDataChanged() {
-        for (DataChangeListener listener : listeners) {
-            try {
-                listener.onHistoryDataChanged();
-            } catch (Exception e) {
-                logger.error("Error notifying listener", e);
-            }
-        }
+    public long getTakenTodayCount() {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return historyList.stream()
+            .filter(h -> h.getScheduledTime() != null && h.getScheduledTime().toLocalDate().equals(today))
+            .filter(h -> com.example.model.DoseHistory.STATUS_TAKEN.equals(h.getStatus()))
+            .count();
+    }
+    
+    public long getMissedTodayCount() {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        return historyList.stream()
+            .filter(h -> h.getScheduledTime() != null && h.getScheduledTime().toLocalDate().equals(today))
+            .filter(h -> com.example.model.DoseHistory.STATUS_MISSED.equals(h.getStatus()))
+            .count();
+    }
+    
+    public List<DoseHistory> getRecentHistory(int limit) {
+        return historyList.stream().limit(limit).collect(java.util.stream.Collectors.toList());
     }
 }

@@ -1,463 +1,345 @@
 package com.example.view;
 
+import com.example.controller.MedicineController;
 import com.example.controller.ReminderController;
+import com.example.model.Medicine;
 import com.example.model.Reminder;
-import com.example.utils.DataChangeListener;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 
-/**
- * Enhanced Reminder Panel with full CRUD operations and alarm controls
- */
-public class ReminderPanel extends JPanel implements DataChangeListener {
-    private final ReminderController controller;
+public class ReminderPanel extends JPanel {
+    private ReminderController controller;
+    private MedicineController medicineController;
     private JTable table;
     private DefaultTableModel tableModel;
-    private Timer refreshTimer;
-
+    
     public ReminderPanel(ReminderController controller) {
         this.controller = controller;
-        setLayout(new BorderLayout(10, 10));
-        setBackground(new Color(236, 240, 241));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        this.medicineController = controller.getMedicineController();
+        setLayout(new BorderLayout());
+        setBackground(ModernUIUtils.BACKGROUND);
         
-        // Register as listener for data changes
-        controller.addDataChangeListener(this);
-        
-        initComponents();
-        refreshTable();
-        startAutoRefresh();
-    }
-
-    private void initComponents() {
         add(createHeaderPanel(), BorderLayout.NORTH);
         add(createTablePanel(), BorderLayout.CENTER);
         add(createButtonPanel(), BorderLayout.SOUTH);
+        
+        refreshTable();
     }
-
+    
     private JPanel createHeaderPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setOpaque(false);
-
-        JLabel titleLabel = new JLabel("Reminder Management");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
-        titleLabel.setForeground(new Color(52, 73, 94));
-
-        JLabel subtitleLabel = new JLabel("Set alarms for your medicines");
-        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        subtitleLabel.setForeground(new Color(127, 140, 141));
-
-        JPanel textPanel = new JPanel();
-        textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
-        textPanel.setOpaque(false);
-        textPanel.add(titleLabel);
-        textPanel.add(subtitleLabel);
-
-        panel.add(textPanel, BorderLayout.WEST);
+        panel.setBackground(ModernUIUtils.PRIMARY);
+        panel.setBorder(BorderFactory.createEmptyBorder(18, 25, 18, 25));
+        
+        // Title with icon
+        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        titlePanel.setOpaque(false);
+        
+        JLabel iconLabel = new JLabel("⏰");
+        iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
+        titlePanel.add(iconLabel);
+        
+        JLabel titleLabel = new JLabel("Today's Reminders");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        titleLabel.setForeground(Color.WHITE);
+        titlePanel.add(titleLabel);
+        
+        panel.add(titlePanel, BorderLayout.WEST);
+        
+        // Refresh button
+        JButton refreshBtn = ModernUIUtils.createButton("🔄 Refresh", ModernUIUtils.SUCCESS);
+        refreshBtn.setPreferredSize(new Dimension(110, 32));
+        refreshBtn.addActionListener(e -> refreshTable());
+        panel.add(refreshBtn, BorderLayout.EAST);
+        
         return panel;
     }
-
+    
     private JPanel createTablePanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setOpaque(false);
-
-        // Table columns
-        String[] columns = {"ID", "Medicine Name", "Reminder Time", "Status"};
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 25, 15, 25));
+        panel.setBackground(ModernUIUtils.BACKGROUND);
+        
+        String[] columns = {"ID", "Medicine", "Time", "Status"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
-
+        
         table = new JTable(tableModel);
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        table.setRowHeight(35);
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
-        table.getTableHeader().setBackground(new Color(52, 73, 94));
-        table.getTableHeader().setForeground(Color.WHITE);
-        table.setSelectionBackground(new Color(52, 152, 219));
-        table.setSelectionForeground(Color.WHITE);
-
+        ModernUIUtils.styleTable(table);
+        
+        // Custom renderer for status column
+        table.getColumnModel().getColumn(3).setCellRenderer(new StatusCellRenderer());
+        
+        // Custom renderer for time column
+        table.getColumnModel().getColumn(2).setCellRenderer(new TimeCellRenderer());
+        
         // Hide ID column
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
         table.getColumnModel().getColumn(0).setWidth(0);
-
-        // Center align cells
-        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        table.getColumnModel().getColumn(1).setCellRenderer(centerRenderer);
-        table.getColumnModel().getColumn(2).setCellRenderer(centerRenderer);
-
-        // Custom renderer for status column
-        table.getColumnModel().getColumn(3).setCellRenderer(new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value,
-                                                           boolean isSelected, boolean hasFocus, int row, int column) {
-                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                setHorizontalAlignment(JLabel.CENTER);
-                setFont(new Font("Segoe UI", Font.BOLD, 12));
-                
-                if (!isSelected) {
-                    String status = (String) value;
-                    if ("PENDING".equals(status)) {
-                        c.setBackground(new Color(255, 243, 205));
-                        c.setForeground(new Color(243, 156, 18));
-                    } else if ("TAKEN".equals(status)) {
-                        c.setBackground(new Color(212, 237, 218));
-                        c.setForeground(new Color(46, 204, 113));
-                    } else if ("MISSED".equals(status)) {
-                        c.setBackground(new Color(248, 215, 218));
-                        c.setForeground(new Color(231, 76, 60));
-                    } else {
-                        c.setBackground(Color.WHITE);
-                        c.setForeground(Color.BLACK);
-                    }
-                }
-                return c;
-            }
-        });
-
-        JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
-        scrollPane.getViewport().setBackground(Color.WHITE);
-
+        
+        // Set column widths
+        table.getColumnModel().getColumn(1).setPreferredWidth(250);
+        table.getColumnModel().getColumn(2).setPreferredWidth(100);
+        table.getColumnModel().getColumn(3).setPreferredWidth(120);
+        
+        JScrollPane scrollPane = ModernUIUtils.createModernScrollPane(table);
         panel.add(scrollPane, BorderLayout.CENTER);
+        
         return panel;
     }
-
+    
     private JPanel createButtonPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-        panel.setOpaque(false);
-
-        JButton addButton = createStyledButton("Add Reminder", new Color(46, 204, 113));
-        addButton.addActionListener(e -> showAddReminderDialog());
-        panel.add(addButton);
-
-        JButton editButton = createStyledButton("Edit", new Color(52, 152, 219));
-        editButton.addActionListener(e -> editReminder());
-        panel.add(editButton);
-
-        JButton deleteButton = createStyledButton("Delete", new Color(231, 76, 60));
-        deleteButton.addActionListener(e -> deleteReminder());
-        panel.add(deleteButton);
-
-        JButton markTakenButton = createStyledButton("✅ Mark Taken", new Color(46, 204, 113));
-        markTakenButton.addActionListener(e -> markAsTaken());
-        panel.add(markTakenButton);
-
-        JButton snoozeButton = createStyledButton("Snooze 5min", new Color(241, 196, 15));
-        snoozeButton.addActionListener(e -> snoozeReminder());
-        panel.add(snoozeButton);
-
-        JButton refreshButton = createStyledButton("Refresh", new Color(155, 89, 182));
-        refreshButton.addActionListener(e -> refreshTable());
-        panel.add(refreshButton);
-
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(2, 0, 0, 0, new Color(200, 200, 200)),
+            BorderFactory.createEmptyBorder(10, 10, 10, 10)
+        ));
+        
+        // Add Schedule Button - Bright Green
+        JButton btnAdd = new JButton("➕ Add Schedule");
+        btnAdd.setPreferredSize(new Dimension(170, 45));
+        btnAdd.setBackground(new Color(76, 175, 80));
+        btnAdd.setForeground(Color.WHITE);
+        btnAdd.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnAdd.setFocusPainted(false);
+        btnAdd.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(56, 142, 60), 2),
+            BorderFactory.createEmptyBorder(8, 15, 8, 15)
+        ));
+        btnAdd.addActionListener(e -> showAddScheduleDialog());
+        panel.add(btnAdd);
+        
+        // Edit Schedule Button - Bright Blue
+        JButton btnEdit = new JButton("✏️ Edit Schedule");
+        btnEdit.setPreferredSize(new Dimension(170, 45));
+        btnEdit.setBackground(new Color(33, 150, 243));
+        btnEdit.setForeground(Color.WHITE);
+        btnEdit.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnEdit.setFocusPainted(false);
+        btnEdit.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(21, 101, 192), 2),
+            BorderFactory.createEmptyBorder(8, 15, 8, 15)
+        ));
+        btnEdit.addActionListener(e -> showEditScheduleDialog());
+        panel.add(btnEdit);
+        
+        // Mark as Taken Button - Bright Teal
+        JButton btnTaken = new JButton("✅ Mark as Taken");
+        btnTaken.setPreferredSize(new Dimension(180, 45));
+        btnTaken.setBackground(new Color(0, 150, 136));
+        btnTaken.setForeground(Color.WHITE);
+        btnTaken.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnTaken.setFocusPainted(false);
+        btnTaken.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0, 121, 107), 2),
+            BorderFactory.createEmptyBorder(8, 15, 8, 15)
+        ));
+        btnTaken.addActionListener(e -> markSelectedAsTaken());
+        panel.add(btnTaken);
+        
+        // Delete Schedule Button - Bright Red
+        JButton btnDelete = new JButton("🗑️ Delete Schedule");
+        btnDelete.setPreferredSize(new Dimension(180, 45));
+        btnDelete.setBackground(new Color(244, 67, 54));
+        btnDelete.setForeground(Color.WHITE);
+        btnDelete.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnDelete.setFocusPainted(false);
+        btnDelete.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(198, 40, 40), 2),
+            BorderFactory.createEmptyBorder(8, 15, 8, 15)
+        ));
+        btnDelete.addActionListener(e -> deleteSchedule());
+        panel.add(btnDelete);
+        
         return panel;
     }
-
-    private JButton createStyledButton(String text, Color color) {
-        JButton button = new JButton(text);
-        button.setBackground(color);
-        button.setForeground(Color.WHITE);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        button.setFocusPainted(false);
-        button.setBorderPainted(false);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setPreferredSize(new Dimension(150, 40));
-
-        button.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                button.setBackground(color.darker());
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                button.setBackground(color);
-            }
-        });
-
-        return button;
-    }
-
-    private void showAddReminderDialog() {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Add Reminder", true);
-        dialog.setLayout(new BorderLayout(10, 10));
-        dialog.setSize(450, 280);
-        dialog.setLocationRelativeTo(this);
-
-        JPanel formPanel = new JPanel(new GridLayout(3, 2, 10, 15));
-        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-        formPanel.add(new JLabel("Medicine Name:"));
-        JTextField nameField = new JTextField();
-        nameField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        formPanel.add(nameField);
-
-        formPanel.add(new JLabel("Date (yyyy-MM-dd):"));
-        JTextField dateField = new JTextField(LocalDate.now().toString());
-        dateField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        formPanel.add(dateField);
-
-        formPanel.add(new JLabel("Time (HH:mm):"));
-        JTextField timeField = new JTextField("08:00");
-        timeField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        formPanel.add(timeField);
-
-        dialog.add(formPanel, BorderLayout.CENTER);
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        JButton saveButton = createStyledButton("Save", new Color(46, 204, 113));
-        saveButton.addActionListener(e -> {
-            try {
-                String name = nameField.getText().trim();
-                String dateStr = dateField.getText().trim();
-                String timeStr = timeField.getText().trim();
-
-                if (name.isEmpty()) {
-                    JOptionPane.showMessageDialog(dialog, "Please enter medicine name!", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                LocalDate date = LocalDate.parse(dateStr);
-                LocalTime time = LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
-                LocalDateTime reminderTime = LocalDateTime.of(date, time);
-
-                // Validate not in past
-                if (reminderTime.isBefore(LocalDateTime.now())) {
-                    int confirm = JOptionPane.showConfirmDialog(dialog,
-                        "This time is in the past. Set anyway?",
-                        "Past Time Warning", 
-                        JOptionPane.YES_NO_OPTION,
-                        JOptionPane.WARNING_MESSAGE);
-                    if (confirm != JOptionPane.YES_OPTION) return;
-                }
-
-                Reminder reminder = new Reminder(name, reminderTime);
-                Reminder addedReminder = controller.addReminder(reminder);
-
-                if (addedReminder != null) {
-                    JOptionPane.showMessageDialog(dialog, "Reminder added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-                    refreshTable();
-                    dialog.dispose();
-                } else {
-                    JOptionPane.showMessageDialog(dialog, "Failed to add reminder!", "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            } catch (DateTimeParseException ex) {
-                JOptionPane.showMessageDialog(dialog, "Invalid date or time format!\nDate: yyyy-MM-dd\nTime: HH:mm", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-        buttonPanel.add(saveButton);
-
-        JButton cancelButton = createStyledButton("Cancel", new Color(231, 76, 60));
-        cancelButton.addActionListener(e -> dialog.dispose());
-        buttonPanel.add(cancelButton);
-
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
-        dialog.setVisible(true);
-    }
-
-    private void editReminder() {
-        int selectedRow = table.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a reminder to edit!", "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int id = (int) tableModel.getValueAt(selectedRow, 0);
-        Reminder reminder = controller.getReminderById(id);
-
-        if (reminder == null) {
-            JOptionPane.showMessageDialog(this, "Reminder not found!", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Edit Reminder", true);
-        dialog.setLayout(new BorderLayout(10, 10));
-        dialog.setSize(450, 280);
-        dialog.setLocationRelativeTo(this);
-
-        JPanel formPanel = new JPanel(new GridLayout(3, 2, 10, 15));
-        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-        formPanel.add(new JLabel("Medicine Name:"));
-        JTextField nameField = new JTextField(reminder.getMedicineName());
-        nameField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        formPanel.add(nameField);
-
-        formPanel.add(new JLabel("Date (yyyy-MM-dd):"));
-        JTextField dateField = new JTextField(reminder.getReminderTime().toLocalDate().toString());
-        dateField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        formPanel.add(dateField);
-
-        formPanel.add(new JLabel("Time (HH:mm):"));
-        JTextField timeField = new JTextField(reminder.getReminderTime().toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm")));
-        timeField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        formPanel.add(timeField);
-
-        dialog.add(formPanel, BorderLayout.CENTER);
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        JButton saveButton = createStyledButton("Update", new Color(52, 152, 219));
-        saveButton.addActionListener(e -> {
-            try {
-                String name = nameField.getText().trim();
-                String dateStr = dateField.getText().trim();
-                String timeStr = timeField.getText().trim();
-
-                if (name.isEmpty()) {
-                    JOptionPane.showMessageDialog(dialog, "Please enter medicine name!", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                LocalDate date = LocalDate.parse(dateStr);
-                LocalTime time = LocalTime.parse(timeStr, DateTimeFormatter.ofPattern("HH:mm"));
-                LocalDateTime reminderTime = LocalDateTime.of(date, time);
-
-                reminder.setMedicineName(name);
-                reminder.setReminderTime(reminderTime);
-
-                boolean success = controller.updateReminder(reminder);
-                if (success) {
-                    JOptionPane.showMessageDialog(dialog, "Reminder updated successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-                    refreshTable();
-                    dialog.dispose();
-                } else {
-                    JOptionPane.showMessageDialog(dialog, "Failed to update reminder!", "Error", JOptionPane.ERROR_MESSAGE);
-                }
-            } catch (DateTimeParseException ex) {
-                JOptionPane.showMessageDialog(dialog, "Invalid date or time format!\nDate: yyyy-MM-dd\nTime: HH:mm", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        });
-        buttonPanel.add(saveButton);
-
-        JButton cancelButton = createStyledButton("Cancel", new Color(231, 76, 60));
-        cancelButton.addActionListener(e -> dialog.dispose());
-        buttonPanel.add(cancelButton);
-
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
-        dialog.setVisible(true);
-    }
-
-    private void deleteReminder() {
-        int selectedRow = table.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a reminder to delete!", "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int id = (int) tableModel.getValueAt(selectedRow, 0);
-        String medicineName = (String) tableModel.getValueAt(selectedRow, 1);
-
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "Are you sure you want to delete the reminder for '" + medicineName + "'?",
-                "Confirm Delete",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.WARNING_MESSAGE);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            boolean success = controller.deleteReminder(id);
-            if (success) {
-                JOptionPane.showMessageDialog(this, "Reminder deleted successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-                refreshTable();
-            } else {
-                JOptionPane.showMessageDialog(this, "Failed to delete reminder!", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
-    private void markAsTaken() {
-        int selectedRow = table.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a reminder to mark as taken!", "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int id = (int) tableModel.getValueAt(selectedRow, 0);
-        controller.markTaken(id);
-        JOptionPane.showMessageDialog(this, "Reminder marked as TAKEN!", "Success", JOptionPane.INFORMATION_MESSAGE);
-        refreshTable();
-    }
-
-    private void snoozeReminder() {
-        int selectedRow = table.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "Please select a reminder to snooze!", "No Selection", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int id = (int) tableModel.getValueAt(selectedRow, 0);
-        controller.snooze(id, 5); // Snooze for 5 minutes
-        JOptionPane.showMessageDialog(this, "Reminder snoozed for 5 minutes!", "Success", JOptionPane.INFORMATION_MESSAGE);
-        refreshTable();
-    }
-
+    
     private void refreshTable() {
         tableModel.setRowCount(0);
-        List<Reminder> reminders = controller.getAllReminders();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        List<Reminder> list = controller.getDailyReminders();
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm");
         
-        for (Reminder r : reminders) {
+        for(Reminder r : list) {
             tableModel.addRow(new Object[]{
                 r.getId(),
                 r.getMedicineName(),
-                r.getReminderTime().format(formatter),
-                r.getStatus().toString()
+                r.getReminderTime().format(fmt),
+                r.getStatus()
             });
         }
     }
-
-    private void startAutoRefresh() {
-        // Auto-refresh every 10 seconds to show updated statuses
-        refreshTimer = new Timer(10000, e -> refreshTable());
-        refreshTimer.start();
-    }
-
-    public void stopAutoRefresh() {
-        if (refreshTimer != null) {
-            refreshTimer.stop();
-            refreshTimer = null;
+    
+    private void markSelectedAsTaken() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            showWarning("Please select a reminder first.");
+            return;
+        }
+        
+        int id = (int) tableModel.getValueAt(row, 0);
+        String medName = (String) tableModel.getValueAt(row, 1);
+        
+        List<Reminder> list = controller.getDailyReminders();
+        Reminder r = list.stream().filter(rem -> rem.getId() == id).findFirst().orElse(null);
+        
+        if (r != null && !"TAKEN".equals(r.getStatus())) {
+            // Get the medicine object by name
+            Medicine medicine = medicineController.getAllMedicines().stream()
+                .filter(m -> m.getName().equals(r.getMedicineName()))
+                .findFirst()
+                .orElse(null);
+            
+            if (medicine != null) {
+                controller.markAsTaken(r, medicine);
+                refreshTable();
+                showSuccess("Marked '" + medName + "' as taken!");
+            } else {
+                showWarning("Medicine not found for this reminder.");
+            }
+        } else if (r != null && "TAKEN".equals(r.getStatus())) {
+            showInfo("This dose has already been taken.");
         }
     }
-
-    /**
-     * Cleanup method - call when panel is removed
-     */
-    public void cleanup() {
-        stopAutoRefresh();
-        controller.removeDataChangeListener(this);
+    
+    private void skipSelectedDose() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            showWarning("Please select a reminder first.");
+            return;
+        }
+        
+        String medName = (String) tableModel.getValueAt(row, 1);
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Are you sure you want to skip the dose for '" + medName + "'?",
+            "Skip Dose", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            showInfo("Dose skipped for '" + medName + "'.\n(Skip feature not yet implemented in controller)");
+        }
     }
     
-    // DataChangeListener implementation - auto-refresh UI when data changes
-    @Override
-    public void onMedicineDataChanged() {
-        // Reminder panel doesn't directly depend on medicine changes
+    private void snoozeSelectedReminder() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            showWarning("Please select a reminder first.");
+            return;
+        }
+        
+        String medName = (String) tableModel.getValueAt(row, 1);
+        showInfo("Reminder for '" + medName + "' snoozed for 15 minutes.\n(Snooze feature not yet implemented in controller)");
     }
     
-    @Override
-    public void onReminderDataChanged() {
-        SwingUtilities.invokeLater(() -> {
-            refreshTable();
-        });
+    private void showWarning(String message) {
+        JOptionPane.showMessageDialog(this, message, "Warning", JOptionPane.WARNING_MESSAGE);
     }
     
-    @Override
-    public void onInventoryDataChanged() {
-        // Reminder panel doesn't display inventory
+    private void showSuccess(String message) {
+        JOptionPane.showMessageDialog(this, message, "Success", JOptionPane.INFORMATION_MESSAGE);
     }
     
-    @Override
-    public void onHistoryDataChanged() {
-        // Reminder panel doesn't display history
+    private void showInfo(String message) {
+        JOptionPane.showMessageDialog(this, message, "Info", JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    // Custom renderer for status column
+    private class StatusCellRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            
+            String status = value != null ? value.toString() : "";
+            
+            label.setHorizontalAlignment(CENTER);
+            label.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            label.setBorder(BorderFactory.createEmptyBorder(5, 8, 5, 8));
+            label.setOpaque(true);
+            
+            if (!isSelected) {
+                switch (status.toUpperCase()) {
+                    case "TAKEN":
+                        label.setBackground(new Color(232, 245, 233));
+                        label.setForeground(ModernUIUtils.SUCCESS);
+                        break;
+                    case "MISSED":
+                        label.setBackground(new Color(255, 235, 238));
+                        label.setForeground(ModernUIUtils.DANGER);
+                        break;
+                    case "PENDING":
+                        label.setBackground(new Color(255, 243, 224));
+                        label.setForeground(ModernUIUtils.WARNING);
+                        break;
+                    default:
+                        label.setBackground(new Color(227, 242, 253));
+                        label.setForeground(ModernUIUtils.PRIMARY);
+                }
+            }
+            
+            return label;
+        }
+    }
+    
+    // Custom renderer for time column
+    private class TimeCellRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            JLabel label = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            
+            label.setHorizontalAlignment(CENTER);
+            label.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            label.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+            label.setOpaque(true);
+            
+            if (!isSelected) {
+                label.setBackground(row % 2 == 0 ? Color.WHITE : new Color(250, 250, 252));
+                label.setForeground(ModernUIUtils.PRIMARY);
+            }
+            
+            return label;
+        }
+    }
+    
+    private void showAddScheduleDialog() {
+        showInfo("Add Schedule: Please go to the 'Medicines' tab to add/edit medicine schedules.\nReminders are automatically generated from medicine schedules.");
+    }
+    
+    private void showEditScheduleDialog() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            showWarning("Please select a reminder first.");
+            return;
+        }
+        
+        String medName = (String) tableModel.getValueAt(row, 1);
+        showInfo("Edit Schedule: Please go to the 'Medicines' tab and edit '" + medName + "' to modify its schedule.\nReminders are automatically generated from medicine schedules.");
+    }
+    
+    private void deleteSchedule() {
+        int row = table.getSelectedRow();
+        if (row < 0) {
+            showWarning("Please select a reminder first.");
+            return;
+        }
+        
+        String medName = (String) tableModel.getValueAt(row, 1);
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "To delete this schedule, you need to edit the medicine '" + medName + "' in the Medicines tab.\nDo you want to continue?",
+            "Delete Schedule", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            showInfo("Please navigate to the 'Medicines' tab and edit '" + medName + "' to remove its schedule.");
+        }
     }
 }

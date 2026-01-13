@@ -1,161 +1,198 @@
 package com.example.view;
 
 import com.example.controller.*;
+import com.example.service.MedicineReminderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import java.awt.*;
 
 public class MainFrame extends JFrame {
     private static final Logger logger = LoggerFactory.getLogger(MainFrame.class);
     private MedicineController medicineController;
     private ReminderController reminderController;
-    private InventoryController inventoryController;
     private HistoryController historyController;
+    private AuthController authController;
+    private MedicineReminderService reminderService;
+    private LiveClockPanel clockPanel;
     
     public MainFrame() {
         setTitle("DailyDose - Medicine Tracker");
-        setSize(1200, 750);
+        setSize(1280, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+        
+        // Set look and feel
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            logger.warn("Could not set system look and feel", e);
+        }
+        
+        authController = new AuthController();
         initControllers();
         initComponents();
+        startReminderService();
     }
     
     private void initControllers() {
         medicineController = new MedicineController();
-        reminderController = new ReminderController();
-        inventoryController = new InventoryController();
         historyController = new HistoryController();
+        reminderController = new ReminderController();
         
         // Link controllers
-        reminderController.setInventoryController(inventoryController);
+        reminderController.setMedicineController(medicineController);
         reminderController.setHistoryController(historyController);
-        
-        // Show alarm service started confirmation
-        SwingUtilities.invokeLater(() -> {
-            JOptionPane.showMessageDialog(this,
-                "Alarm monitoring service started!\nYou will be notified when reminders are due.",
-                "DailyDose Ready", JOptionPane.INFORMATION_MESSAGE);
-        });
+    }
+    
+    private void startReminderService() {
+        reminderService = new MedicineReminderService(reminderController);
+        reminderService.start();
     }
 
     private void initComponents() {
         setLayout(new BorderLayout());
+        getContentPane().setBackground(ModernUIUtils.BACKGROUND);
         
-        // Main gradient background panel
-        JPanel mainPanel = new JPanel(new BorderLayout()) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                GradientPaint gp = new GradientPaint(
-                    0, 0, new Color(58, 56, 144),
-                    0, getHeight(), new Color(35, 35, 48)
-                );
-                g2.setPaint(gp);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        
-        // Top panel
+        // Header with clock
         JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.setOpaque(false);
-        topPanel.setPreferredSize(new Dimension(0, 100));
-        topPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+        topPanel.setBackground(ModernUIUtils.PRIMARY);
+        topPanel.setBorder(BorderFactory.createEmptyBorder(15, 25, 15, 25));
         
-        JLabel titleLabel = new JLabel("DailyDose - Medicine Tracker");
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        // Title with icon
+        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        titlePanel.setOpaque(false);
+        
+        JLabel iconLabel = new JLabel("💊");
+        iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 28));
+        titlePanel.add(iconLabel);
+        
+        JLabel titleLabel = new JLabel("DailyDose");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 26));
         titleLabel.setForeground(Color.WHITE);
-        topPanel.add(titleLabel, BorderLayout.WEST);
+        titlePanel.add(titleLabel);
         
-        // Right panel with clock and logout button
-        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        JLabel subtitleLabel = new JLabel("Medicine Tracker");
+        subtitleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        subtitleLabel.setForeground(new Color(200, 210, 255));
+        subtitleLabel.setBorder(BorderFactory.createEmptyBorder(8, 5, 0, 0));
+        titlePanel.add(subtitleLabel);
+        
+        topPanel.add(titlePanel, BorderLayout.WEST);
+        
+        // Right panel with clock and logout
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 0));
         rightPanel.setOpaque(false);
         
-        // Add live clock
-        LiveClockPanel clockPanel = new LiveClockPanel();
+        // Live clock
+        clockPanel = new LiveClockPanel();
         rightPanel.add(clockPanel);
         
-        JButton logoutButton = createModernButton("Logout", new Color(231, 76, 60), new Color(192, 57, 43));
+        JButton logoutButton = ModernUIUtils.createButton("🚪 Logout", ModernUIUtils.DANGER);
+        logoutButton.setPreferredSize(new Dimension(100, 35));
         logoutButton.addActionListener(e -> logout());
         rightPanel.add(logoutButton);
         
         topPanel.add(rightPanel, BorderLayout.EAST);
-        
-        mainPanel.add(topPanel, BorderLayout.NORTH);
+        add(topPanel, BorderLayout.NORTH);
 
-        // Center panel with tabs
-        JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        tabbedPane.setBackground(new Color(35, 35, 48));
-        tabbedPane.setForeground(new Color(200, 200, 220));
-        tabbedPane.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        // Create styled tabs
+        JTabbedPane tabbedPane = createStyledTabbedPane();
         
-        // Add tabs
-        tabbedPane.addTab("Dashboard", new DashboardPanel(medicineController, reminderController, inventoryController, historyController));
-        tabbedPane.addTab("Medicines", new EnhancedMedicinePanel(medicineController));
-        tabbedPane.addTab("Reminders", new ReminderPanel(reminderController));
-        tabbedPane.addTab("Inventory", new InventoryPanel(inventoryController));
-        tabbedPane.addTab("History", new HistoryPanel(historyController));
-        tabbedPane.addTab("Settings", new SettingsPanel());
+        tabbedPane.addTab("🏠 Dashboard", new DashboardPanel(medicineController, reminderController, historyController));
+        tabbedPane.addTab("💊 Medicines", new EnhancedMedicinePanel(medicineController));
+        tabbedPane.addTab("⏰ Reminders", new ReminderPanel(reminderController));
+        tabbedPane.addTab("📦 Inventory", new InventoryPanel(medicineController));
+        tabbedPane.addTab("📋 History", new HistoryPanel(historyController));
+        tabbedPane.addTab("⚙️ Settings", new SettingsPanel());
         
-        mainPanel.add(tabbedPane, BorderLayout.CENTER);
-        add(mainPanel);
+        add(tabbedPane, BorderLayout.CENTER);
     }
     
-    private JButton createModernButton(String text, Color color1, Color color2) {
-        JButton button = new JButton(text) {
+    private JTabbedPane createStyledTabbedPane() {
+        JTabbedPane tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+        tabbedPane.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        tabbedPane.setBackground(ModernUIUtils.BACKGROUND);
+        tabbedPane.setForeground(ModernUIUtils.TEXT_PRIMARY);
+        
+        // Custom UI for better looking tabs
+        tabbedPane.setUI(new BasicTabbedPaneUI() {
             @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                GradientPaint gp = new GradientPaint(0, 0, color1, 0, getHeight(), color2);
-                g2.setPaint(gp);
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10);
-                g2.dispose();
-                super.paintComponent(g);
+            protected void installDefaults() {
+                super.installDefaults();
+                tabAreaInsets = new Insets(5, 15, 0, 15);
+                contentBorderInsets = new Insets(0, 0, 0, 0);
             }
-        };
-        button.setForeground(Color.WHITE);
-        button.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        button.setContentAreaFilled(false);
-        button.setBorderPainted(false);
-        button.setFocusPainted(false);
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setPreferredSize(new Dimension(100, 35));
-        return button;
+            
+            @Override
+            protected void paintTabBackground(Graphics g, int tabPlacement, int tabIndex,
+                    int x, int y, int w, int h, boolean isSelected) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                if (isSelected) {
+                    g2d.setColor(Color.WHITE);
+                } else {
+                    g2d.setColor(new Color(240, 242, 247));
+                }
+                
+                g2d.fillRoundRect(x, y, w, h + 10, 8, 8);
+                g2d.dispose();
+            }
+            
+            @Override
+            protected void paintTabBorder(Graphics g, int tabPlacement, int tabIndex,
+                    int x, int y, int w, int h, boolean isSelected) {
+                if (isSelected) {
+                    Graphics2D g2d = (Graphics2D) g.create();
+                    g2d.setColor(ModernUIUtils.PRIMARY);
+                    g2d.fillRect(x + 10, y, w - 20, 3);
+                    g2d.dispose();
+                }
+            }
+            
+            @Override
+            protected void paintContentBorder(Graphics g, int tabPlacement, int selectedIndex) {
+                // No content border
+            }
+            
+            @Override
+            protected void paintFocusIndicator(Graphics g, int tabPlacement, Rectangle[] rects,
+                    int tabIndex, Rectangle iconRect, Rectangle textRect, boolean isSelected) {
+                // No focus indicator
+            }
+            
+            @Override
+            protected int calculateTabHeight(int tabPlacement, int tabIndex, int fontHeight) {
+                return 45;
+            }
+            
+            @Override
+            protected int calculateTabWidth(int tabPlacement, int tabIndex, FontMetrics metrics) {
+                return super.calculateTabWidth(tabPlacement, tabIndex, metrics) + 30;
+            }
+        });
+        
+        return tabbedPane;
     }
-
+    
+    private void logout() {
+        // Stop reminder service
+        if (reminderService != null) {
+            reminderService.stop();
+        }
+        authController.logout();;
+        dispose();
+        new LoginFrame().setVisible(true);
+    }
+    
     @Override
     public void dispose() {
-        // Cleanup all resources before closing
-        try {
-            if (reminderController != null) {
-                reminderController.cleanup();
-            }
-            com.example.database.DatabaseManager.getInstance().closeConnection();
-            logger.info("Application resources cleaned up successfully");
-        } catch (Exception e) {
-            logger.error("Error during cleanup", e);
+        if (reminderService != null) {
+            reminderService.stop();
         }
         super.dispose();
-    }
-
-    private void logout() {
-        int choice = JOptionPane.showConfirmDialog(this, 
-                "Are you sure you want to logout?", 
-                "Logout", 
-                JOptionPane.YES_NO_OPTION);
-        
-        if (choice == JOptionPane.YES_OPTION) {
-            dispose();
-            SwingUtilities.invokeLater(() -> {
-                LoginFrame loginFrame = new LoginFrame();
-                loginFrame.setVisible(true);
-            });
-        }
     }
 }

@@ -38,17 +38,16 @@ public class FileUtils {
         String filePath = EXPORT_DIR + fileName + "_" + System.currentTimeMillis() + ".csv";
         try (Writer out = new FileWriter(filePath);
              CSVPrinter printer = new CSVPrinter(out, CSVFormat.DEFAULT
-                     .withHeader("ID", "Medicine Name", "Date", "Time", "Status", "Notes", "Recorded At"))) {
+                     .withHeader("ID", "Medicine Name", "Scheduled Time", "Taken Time", "Status", "Notes"))) {
 
             for (DoseHistory history : histories) {
                 printer.printRecord(
                         history.getId(),
                         history.getMedicineName(),
-                        history.getDate(),
-                        history.getTime(),
+                        history.getScheduledTime(),
+                        history.getTakenTime(),
                         history.getStatus(),
-                        history.getNotes() != null ? history.getNotes() : "",
-                        history.getRecordedAt()
+                        history.getNotes() != null ? history.getNotes() : ""
                 );
             }
             printer.flush();

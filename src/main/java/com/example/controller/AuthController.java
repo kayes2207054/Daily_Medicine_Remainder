@@ -1,47 +1,39 @@
 package com.example.controller;
 
-import com.example.database.UserDatabase;
+import com.example.database.DatabaseManager;
 import com.example.model.User;
 
 public class AuthController {
-    private final UserDatabase userDb = new UserDatabase();
+    private final DatabaseManager dbManager = DatabaseManager.getInstance();
     private String lastError;
     private static User currentUser;
 
-    public boolean isFirstTimeUser() {
-        return !userDb.hasAnyUser();
-    }
-
-    public boolean register(String username, String password, String confirmPassword) {
+    public boolean register(String username, String password, String confirmPassword, String fullName) {
         lastError = null;
         if (username == null || username.trim().length() < 3) {
             lastError = "Username must be at least 3 characters.";
             return false;
         }
-        if (password == null || password.length() < 6) {
-            lastError = "Password must be at least 6 characters.";
+        if (password == null || password.length() < 4) { // Simplified requirement
+            lastError = "Password must be at least 4 characters.";
             return false;
         }
         if (!password.equals(confirmPassword)) {
-            lastError = "Confirm password must match.";
+            lastError = "Passwords do not match.";
             return false;
         }
-        if (userDb.userExists(username)) {
-            lastError = "Username already exists.";
+        
+        // Check if user exists (simplification: try register and catch unique constraint or check first)
+        // Since we didn't add userExists method, we rely on register failing or we should add it.
+        // Better: Try to register.
+        
+        User u = new User(username.trim(), password, User.ROLE_PATIENT, fullName);
+        if (dbManager.registerUser(u)) {
+            return true;
+        } else {
+            lastError = "Registration failed. Username might be taken.";
             return false;
         }
-        String hash = UserDatabase.sha256(password);
-        User u = new User(username.trim(), hash);
-        boolean ok = userDb.saveUser(u);
-        if (!ok) {
-            lastError = "Failed to save user.";
-        }
-        return ok;
-    }
-
-    public boolean signup(String name, String username, String password) {
-        // Simplified signup for JavaFX (name parameter ignored for now)
-        return register(username, password, password);
     }
 
     public boolean login(String username, String password) {
@@ -50,25 +42,19 @@ public class AuthController {
             lastError = "Username required";
             return false;
         }
-        if (password == null || password.length() == 0) {
-            lastError = "Password required";
-            return false;
-        }
-
-        User u = userDb.getUser(username.trim());
-        if (u == null) {
-            lastError = "User not found";
-            return false;
-        }
-
-        String hash = UserDatabase.sha256(password);
-        if (hash != null && hash.equals(u.getPasswordHash())) {
+        
+        User u = dbManager.authenticateUser(username.trim(), password);
+        if (u != null) {
             currentUser = u;
             return true;
         }
 
-        lastError = "Invalid password";
+        lastError = "Invalid username or password";
         return false;
+    }
+
+    public void logout() {
+        currentUser = null;
     }
 
     public String getLastError() {

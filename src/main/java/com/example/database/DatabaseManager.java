@@ -1,12 +1,19 @@
 package com.example.database;
 
-import com.example.model.*;
+import com.example.model.DoseHistory;
+import com.example.model.Medicine;
+import com.example.model.Schedule;
+import com.example.model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,13 +22,13 @@ import java.util.List;
  * DatabaseManager Class
  * Handles all SQLite database operations for DailyDose application.
  * Uses JDBC connection pooling with a singleton pattern.
+ * Refactored for normalized schema and enhanced dosage tracking.
  */
 public class DatabaseManager {
     private static final Logger logger = LoggerFactory.getLogger(DatabaseManager.class);
-    private static final String DB_URL = "jdbc:sqlite:daily_dose.db";
+    private static final String DB_URL = "jdbc:sqlite:daily_dose_v2.db";
     private static DatabaseManager instance;
     private Connection connection;
-
     /**
      * Singleton pattern - get instance of DatabaseManager
      */
@@ -62,112 +69,65 @@ public class DatabaseManager {
     }
 
     /**
-     * Close database connection properly
-     */
-    public void closeConnection() {
-        disconnect();
-    }
-
-    /**
-     * Initialize database tables if they don't exist
+     * Initialize database tables
      */
     private void initializeDatabase() {
         try (Statement stmt = connection.createStatement()) {
-            // Medicines table
-            stmt.execute("CREATE TABLE IF NOT EXISTS medicines (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "name TEXT UNIQUE NOT NULL," +
-                    "dosage TEXT NOT NULL," +
-                    "frequency TEXT NOT NULL," +
-                    "instructions TEXT," +
-                    "quantity INTEGER DEFAULT 0," +
-                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
+            // Enable foreign keys
+            stmt.execute("PRAGMA foreign_keys = ON;");
 
-            // Reminders table
-            stmt.execute("CREATE TABLE IF NOT EXISTS reminders (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "medicine_id INTEGER NOT NULL," +
-                    "medicine_name TEXT NOT NULL," +
-                    "time TEXT NOT NULL," +
-                    "reminder_type TEXT NOT NULL," +
-                    "taken BOOLEAN DEFAULT 0," +
-                    "last_taken_at TIMESTAMP," +
-                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                    "FOREIGN KEY(medicine_id) REFERENCES medicines(id) ON DELETE CASCADE)");
-
-            // Inventory table
-            stmt.execute("CREATE TABLE IF NOT EXISTS inventory (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "medicine_id INTEGER NOT NULL," +
-                    "medicine_name TEXT NOT NULL," +
-                    "quantity INTEGER NOT NULL," +
-                    "threshold INTEGER DEFAULT 10," +
-                    "daily_usage INTEGER DEFAULT 1," +
-                    "last_refill_date DATE," +
-                    "estimated_refill_date DATE," +
-                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                    "FOREIGN KEY(medicine_id) REFERENCES medicines(id) ON DELETE CASCADE)");
-
-            // Dose History table
-            stmt.execute("CREATE TABLE IF NOT EXISTS dose_history (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "medicine_id INTEGER NOT NULL," +
-                    "reminder_id INTEGER," +
-                    "medicine_name TEXT NOT NULL," +
-                    "date DATE NOT NULL," +
-                    "time TEXT," +
-                    "status TEXT NOT NULL," +
-                    "recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                    "notes TEXT," +
-                    "FOREIGN KEY(medicine_id) REFERENCES medicines(id) ON DELETE CASCADE," +
-                    "FOREIGN KEY(reminder_id) REFERENCES reminders(id) ON DELETE SET NULL)");
-
-            // Users table (Patient/Guardian)
+            // 1. Users table
             stmt.execute("CREATE TABLE IF NOT EXISTS users (" +
                     "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                     "username TEXT UNIQUE NOT NULL," +
                     "password_hash TEXT NOT NULL," +
-                    "role TEXT NOT NULL," +
+                    "role TEXT NOT NULL DEFAULT 'PATIENT'," + 
                     "full_name TEXT," +
-                    "email TEXT," +
-                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                    "active BOOLEAN DEFAULT 1)");
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
-            // Guardian-Patient Links table
-            stmt.execute("CREATE TABLE IF NOT EXISTS guardian_patient_links (" +
+            // 2. Medicines table (Normalized: Name and Stock only)
+            stmt.execute("CREATE TABLE IF NOT EXISTS medicines (" +
                     "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "guardian_id INTEGER NOT NULL," +
-                    "patient_id INTEGER NOT NULL," +
-                    "linked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                    "active BOOLEAN DEFAULT 1," +
-                    "FOREIGN KEY(guardian_id) REFERENCES users(id) ON DELETE CASCADE," +
-                    "FOREIGN KEY(patient_id) REFERENCES users(id) ON DELETE CASCADE," +
-                    "UNIQUE(guardian_id, patient_id))");
-
-            // Notifications table
-            stmt.execute("CREATE TABLE IF NOT EXISTS notifications (" +
-                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
-                    "guardian_id INTEGER NOT NULL," +
-                    "patient_id INTEGER NOT NULL," +
-                    "type TEXT NOT NULL," +
-                    "message TEXT NOT NULL," +
-                    "details TEXT," +
+                    "name TEXT UNIQUE NOT NULL," +
+                    "stock_quantity INTEGER DEFAULT 0," + // Current physical stock
+                    "low_stock_threshold INTEGER DEFAULT 10," +
+                    "dose_unit TEXT," + // e.g., tablet, ml, pill
+                    "instructions TEXT," +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
-                    "read BOOLEAN DEFAULT 0," +
-                    "FOREIGN KEY(guardian_id) REFERENCES users(id) ON DELETE CASCADE," +
-                    "FOREIGN KEY(patient_id) REFERENCES users(id) ON DELETE CASCADE)");
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)");
 
-            // Migration: Add quantity column if it doesn't exist
-            try {
-                stmt.execute("ALTER TABLE medicines ADD COLUMN quantity INTEGER DEFAULT 0");
-                logger.info("Added quantity column to medicines table");
-            } catch (SQLException e) {
-                // Column already exists, ignore
-            }
+            // 3. Medicine Schedules (Dosage & Frequency)
+            // One medicine can have multiple schedules (e.g. Morning-BeforeMeal AND Night-AfterMeal)
+            stmt.execute("CREATE TABLE IF NOT EXISTS medicine_schedules (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "medicine_id INTEGER NOT NULL," +
+                    "time_of_day TEXT NOT NULL," + // MORNING, NOON, NIGHT, CUSTOM
+                    "meal_timing TEXT NOT NULL," + // BEFORE_MEAL, AFTER_MEAL, NONE
+                    "dose_amount REAL DEFAULT 1.0," + // How much to take at this time
+                    "custom_time TEXT," + // Specific time if needed example "10:00"
+                    "custom_note TEXT," + // For "Custom" option text
+                    "FOREIGN KEY(medicine_id) REFERENCES medicines(id) ON DELETE CASCADE)");
 
-            logger.info("Database tables initialized successfully");
+            // 4. Dose History (Tracking actual intake)
+            stmt.execute("CREATE TABLE IF NOT EXISTS dose_history (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "medicine_id INTEGER NOT NULL," +
+                    "scheduled_time TIMESTAMP," + // When it was supposed to be taken
+                    "taken_time TIMESTAMP," + // When it was actually taken
+                    "status TEXT NOT NULL," + // TAKEN, MISSED, SKIPPED
+                    "notes TEXT," +
+                    "FOREIGN KEY(medicine_id) REFERENCES medicines(id) ON DELETE SET NULL)");
+            
+            // 5. Inventory Transaction Logs (Audit trail)
+            stmt.execute("CREATE TABLE IF NOT EXISTS inventory_logs (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT," +
+                    "medicine_id INTEGER NOT NULL," +
+                    "change_amount INTEGER NOT NULL," + // +50 or -1
+                    "reason TEXT," + // "Refill", "Dose Taken", "Adjustment"
+                    "timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "FOREIGN KEY(medicine_id) REFERENCES medicines(id) ON DELETE CASCADE)");
+
+            logger.info("Database tables initialized successfully (V2 Schema)");
         } catch (SQLException e) {
             logger.error("Error initializing database", e);
         }
@@ -175,45 +135,64 @@ public class DatabaseManager {
 
     // ============= MEDICINE OPERATIONS =============
 
-    /**
-     * Add new medicine to database
-     */
     public int addMedicine(Medicine medicine) {
-        String sql = "INSERT INTO medicines(name, dosage, frequency, instructions, quantity) VALUES(?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        String sql = "INSERT INTO medicines(name, stock_quantity, low_stock_threshold, dose_unit, instructions) VALUES(?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, medicine.getName());
-            pstmt.setString(2, medicine.getDosage());
-            pstmt.setString(3, medicine.getFrequency());
-            pstmt.setString(4, medicine.getInstructions());
-            pstmt.setInt(5, medicine.getQuantity());
+            pstmt.setInt(2, medicine.getStockQuantity());
+            pstmt.setInt(3, medicine.getLowStockThreshold());
+            pstmt.setString(4, medicine.getDoseUnit());
+            pstmt.setString(5, medicine.getInstructions());
             pstmt.executeUpdate();
-
-            ResultSet keys = pstmt.getGeneratedKeys();
-            if (keys.next()) {
-                return keys.getInt(1);
+            
+            try (Statement stmt = connection.createStatement();
+                 ResultSet keyRs = stmt.executeQuery("SELECT last_insert_rowid()")) {
+                if (keyRs.next()) {
+                    int medId = keyRs.getInt(1);
+                
+                // Add Schedules
+                if (medicine.getSchedules() != null) {
+                    addSchedules(medId, medicine.getSchedules());
+                }
+                // Log Initial Inventory
+                if(medicine.getStockQuantity() > 0) {
+                    logInventoryChange(medId, medicine.getStockQuantity(), "Initial Stock");
+                }
+                
+                return medId;
             }
+          }
         } catch (SQLException e) {
             logger.error("Error adding medicine", e);
         }
         return -1;
     }
 
-    /**
-     * Get all medicines from database
-     */
+    private void addSchedules(int medicineId, List<Schedule> schedules) {
+        String sql = "INSERT INTO medicine_schedules(medicine_id, time_of_day, meal_timing, dose_amount, custom_note) VALUES(?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            for (Schedule s : schedules) {
+                pstmt.setInt(1, medicineId);
+                pstmt.setString(2, s.getTimeOfDay());
+                pstmt.setString(3, s.getMealTiming());
+                pstmt.setDouble(4, s.getDoseAmount());
+                pstmt.setString(5, s.getCustomNote());
+                pstmt.addBatch();
+            }
+            pstmt.executeBatch();
+        } catch (SQLException e) {
+            logger.error("Error adding schedules", e);
+        }
+    }
+
     public List<Medicine> getAllMedicines() {
         List<Medicine> medicines = new ArrayList<>();
         String sql = "SELECT * FROM medicines ORDER BY name";
         try (Statement stmt = connection.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
-                Medicine m = new Medicine();
-                m.setId(rs.getInt("id"));
-                m.setName(rs.getString("name"));
-                m.setDosage(rs.getString("dosage"));
-                m.setFrequency(rs.getString("frequency"));
-                m.setInstructions(rs.getString("instructions"));
-                m.setQuantity(rs.getInt("quantity"));
+                Medicine m = mapResultSetToMedicine(rs);
+                m.setSchedules(getSchedulesForMedicine(m.getId()));
                 medicines.add(m);
             }
         } catch (SQLException e) {
@@ -222,52 +201,149 @@ public class DatabaseManager {
         return medicines;
     }
 
-    /**
-     * Get medicine by ID
-     */
-    public Medicine getMedicineById(int id) {
-        String sql = "SELECT * FROM medicines WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, id);
+    public List<Medicine> searchMedicines(String query, String frequencyFilter, String mealFilter) {
+        List<Medicine> medicines = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT DISTINCT m.* FROM medicines m ");
+        sql.append("LEFT JOIN medicine_schedules s ON m.id = s.medicine_id WHERE 1=1 ");
+
+        if (query != null && !query.isEmpty()) {
+            sql.append("AND (m.name LIKE ? OR m.instructions LIKE ?) ");
+        }
+        if (frequencyFilter != null && !frequencyFilter.isEmpty()) {
+             sql.append("AND s.time_of_day = ? ");
+        }
+        if (mealFilter != null && !mealFilter.isEmpty()) {
+             sql.append("AND s.meal_timing = ? ");
+        }
+        
+        sql.append("ORDER BY m.name");
+
+        try (PreparedStatement pstmt = connection.prepareStatement(sql.toString())) {
+            int index = 1;
+            if (query != null && !query.isEmpty()) {
+                pstmt.setString(index++, "%" + query + "%");
+                pstmt.setString(index++, "%" + query + "%");
+            }
+            if (frequencyFilter != null && !frequencyFilter.isEmpty()) {
+                pstmt.setString(index++, frequencyFilter);
+            }
+            if (mealFilter != null && !mealFilter.isEmpty()) {
+                pstmt.setString(index++, mealFilter);
+            }
+
             ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                Medicine m = new Medicine();
-                m.setId(rs.getInt("id"));
-                m.setName(rs.getString("name"));
-                m.setDosage(rs.getString("dosage"));
-                m.setFrequency(rs.getString("frequency"));
-                m.setInstructions(rs.getString("instructions"));
-                m.setQuantity(rs.getInt("quantity"));
-                return m;
+            while (rs.next()) {
+                Medicine m = mapResultSetToMedicine(rs);
+                m.setSchedules(getSchedulesForMedicine(m.getId()));
+                medicines.add(m);
             }
         } catch (SQLException e) {
-            logger.error("Error retrieving medicine by id", e);
+            logger.error("Error filtering medicines", e);
         }
-        return null;
+        return medicines;
     }
 
-    /**
-     * Update medicine
-     */
+    private Medicine mapResultSetToMedicine(ResultSet rs) throws SQLException {
+        Medicine m = new Medicine();
+        m.setId(rs.getInt("id"));
+        m.setName(rs.getString("name"));
+        m.setStockQuantity(rs.getInt("stock_quantity"));
+        m.setLowStockThreshold(rs.getInt("low_stock_threshold"));
+        m.setDoseUnit(rs.getString("dose_unit"));
+        m.setInstructions(rs.getString("instructions"));
+        return m;
+    }
+
+    private List<Schedule> getSchedulesForMedicine(int medicineId) {
+        List<Schedule> schedules = new ArrayList<>();
+        String sql = "SELECT * FROM medicine_schedules WHERE medicine_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, medicineId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                Schedule s = new Schedule();
+                s.setId(rs.getInt("id"));
+                s.setMedicineId(rs.getInt("medicine_id"));
+                s.setTimeOfDay(rs.getString("time_of_day"));
+                s.setMealTiming(rs.getString("meal_timing"));
+                s.setDoseAmount(rs.getDouble("dose_amount"));
+                s.setCustomNote(rs.getString("custom_note"));
+                schedules.add(s);
+            }
+        } catch (SQLException e) {
+            logger.error("Error retrieving schedules", e);
+        }
+        return schedules;
+    }
+
     public boolean updateMedicine(Medicine medicine) {
-        String sql = "UPDATE medicines SET name = ?, dosage = ?, frequency = ?, instructions = ?, quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+        String sql = "UPDATE medicines SET name = ?, stock_quantity = ?, low_stock_threshold = ?, dose_unit = ?, instructions = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setString(1, medicine.getName());
-            pstmt.setString(2, medicine.getDosage());
-            pstmt.setString(3, medicine.getFrequency());
-            pstmt.setString(4, medicine.getInstructions());
-            pstmt.setInt(5, medicine.getQuantity());
+            pstmt.setInt(2, medicine.getStockQuantity());
+            pstmt.setInt(3, medicine.getLowStockThreshold());
+            pstmt.setString(4, medicine.getDoseUnit());
+            pstmt.setString(5, medicine.getInstructions());
             pstmt.setInt(6, medicine.getId());
-            return pstmt.executeUpdate() > 0;
+            
+            int affected = pstmt.executeUpdate();
+            if(affected > 0) {
+                // Update schedules: Delete all and re-insert (Simplest approach for 1:N update)
+                deleteSchedules(medicine.getId());
+                addSchedules(medicine.getId(), medicine.getSchedules());
+                return true;
+            }
         } catch (SQLException e) {
             logger.error("Error updating medicine", e);
         }
         return false;
     }
+    
+    public boolean updateStock(int medicineId, int newQuantity, String reason) {
+         try {
+             // Get current stock
+             Medicine m = getMedicineById(medicineId);
+             if(m == null) return false;
+             
+             int diff = newQuantity - m.getStockQuantity();
+             
+             String sql = "UPDATE medicines SET stock_quantity = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
+             try(PreparedStatement pstmt = connection.prepareStatement(sql)) {
+                 pstmt.setInt(1, newQuantity);
+                 pstmt.setInt(2, medicineId);
+                 if(pstmt.executeUpdate() > 0) {
+                     logInventoryChange(medicineId, diff, reason);
+                     return true;
+                 }
+             }
+         } catch(SQLException e) {
+             logger.error("Error updating stock", e);
+         }
+         return false;
+    }
+    
+    private void logInventoryChange(int medicineId, int changeAmount, String reason) {
+        String sql = "INSERT INTO inventory_logs(medicine_id, change_amount, reason) VALUES(?, ?, ?)";
+        try(PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, medicineId);
+            pstmt.setInt(2, changeAmount);
+            pstmt.setString(3, reason);
+            pstmt.executeUpdate();
+        } catch(SQLException e) {
+             logger.error("Error logging inventory", e);
+        }
+    }
 
-    /**
-     * Delete medicine and related reminders/inventory/history
-     */
+    private void deleteSchedules(int medicineId) {
+        String sql = "DELETE FROM medicine_schedules WHERE medicine_id = ?";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+            pstmt.setInt(1, medicineId);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            logger.error("Error deleting schedules", e);
+        }
+    }
+
     public boolean deleteMedicine(int id) {
         String sql = "DELETE FROM medicines WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
@@ -278,269 +354,73 @@ public class DatabaseManager {
         }
         return false;
     }
-
-    // ============= REMINDER OPERATIONS =============
-
-    /**
-     * Add new reminder
-     */
-    public int addReminder(Reminder reminder) {
-        String sql = "INSERT INTO reminders(medicine_id, medicine_name, time, reminder_type) VALUES(?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            // Legacy DB compatibility: we no longer store medicineId/type; write minimal info
-            pstmt.setInt(1, 0);
-            pstmt.setString(2, reminder.getMedicineName());
-            pstmt.setString(3, reminder.getReminderTime() != null ? reminder.getReminderTime().toString() : "");
-            pstmt.setString(4, reminder.getStatus() != null ? reminder.getStatus().name() : "PENDING");
-            pstmt.executeUpdate();
-
-            ResultSet keys = pstmt.getGeneratedKeys();
-            if (keys.next()) {
-                return keys.getInt(1);
-            }
-        } catch (SQLException e) {
-            logger.error("Error adding reminder", e);
-        }
-        return -1;
-    }
-
-    /**
-     * Get all reminders
-     */
-    public List<Reminder> getAllReminders() {
-        List<Reminder> reminders = new ArrayList<>();
-        String sql = "SELECT * FROM reminders ORDER BY time";
-        try (Statement stmt = connection.createStatement()) {
-            ResultSet rs = stmt.executeQuery(sql);
-            while (rs.next()) {
-                Reminder r = new Reminder();
-                r.setId(rs.getInt("id"));
-                r.setMedicineName(rs.getString("medicine_name"));
-                r.setReminderTime(parseReminderDateTime(rs.getString("time")));
-                String status = rs.getString("reminder_type");
-                try {
-                    r.setStatus(Reminder.Status.valueOf(status));
-                } catch (Exception ex) {
-                    r.setStatus(Reminder.Status.PENDING);
-                }
-                reminders.add(r);
-            }
-        } catch (SQLException e) {
-            logger.error("Error retrieving reminders", e);
-        }
-        return reminders;
-    }
-
-    /**
-     * Get reminders by medicine ID
-     */
-    public List<Reminder> getRemindersByMedicineId(int medicineId) {
-        List<Reminder> reminders = new ArrayList<>();
-        String sql = "SELECT * FROM reminders WHERE medicine_id = ? ORDER BY time";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, medicineId);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                Reminder r = new Reminder();
-                r.setId(rs.getInt("id"));
-                r.setMedicineName(rs.getString("medicine_name"));
-                r.setReminderTime(parseReminderDateTime(rs.getString("time")));
-                String status = rs.getString("reminder_type");
-                try {
-                    r.setStatus(Reminder.Status.valueOf(status));
-                } catch (Exception ex) {
-                    r.setStatus(Reminder.Status.PENDING);
-                }
-                reminders.add(r);
-            }
-        } catch (SQLException e) {
-            logger.error("Error retrieving reminders by medicine id", e);
-        }
-        return reminders;
-    }
-
-    /**
-     * Parse reminder time stored as either full LocalDateTime ISO string or HH:mm legacy time.
-     */
-    private LocalDateTime parseReminderDateTime(String value) {
-        if (value == null || value.isEmpty()) {
-            return LocalDateTime.now();
-        }
-        try {
-            if (value.length() <= 5 && !value.contains("T")) {
-                // Legacy format like "07:00" -> assume today at that time
-                return LocalDate.now().atTime(java.time.LocalTime.parse(value));
-            }
-            return LocalDateTime.parse(value);
-        } catch (Exception ex) {
-            logger.warn("Failed to parse reminder time '{}', defaulting to now", value, ex);
-            return LocalDateTime.now();
-        }
-    }
-
-    /**
-     * Update reminder
-     */
-    public boolean updateReminder(Reminder reminder) {
-        String sql = "UPDATE reminders SET medicine_id = ?, medicine_name = ?, time = ?, reminder_type = ?, taken = ? WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, 0);
-            pstmt.setString(2, reminder.getMedicineName());
-            pstmt.setString(3, reminder.getReminderTime() != null ? reminder.getReminderTime().toString() : "");
-            pstmt.setString(4, reminder.getStatus() != null ? reminder.getStatus().name() : "PENDING");
-            pstmt.setBoolean(5, reminder.getStatus() == Reminder.Status.TAKEN);
-            pstmt.setInt(6, reminder.getId());
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error updating reminder", e);
-        }
-        return false;
-    }
-
-    /**
-     * Delete reminder
-     */
-    public boolean deleteReminder(int id) {
-        String sql = "DELETE FROM reminders WHERE id = ?";
+    
+    public Medicine getMedicineById(int id) {
+        String sql = "SELECT * FROM medicines WHERE id = ?";
         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setInt(1, id);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error deleting reminder", e);
-        }
-        return false;
-    }
-
-    // ============= INVENTORY OPERATIONS =============
-
-    /**
-     * Add new inventory item
-     */
-    public int addInventory(Inventory inventory) {
-        String sql = "INSERT INTO inventory(medicine_id, medicine_name, quantity, threshold, daily_usage, last_refill_date) VALUES(?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setInt(1, inventory.getMedicineId());
-            pstmt.setString(2, inventory.getMedicineName());
-            pstmt.setInt(3, inventory.getQuantity());
-            pstmt.setInt(4, inventory.getThreshold());
-            pstmt.setInt(5, inventory.getDailyUsage());
-            pstmt.setDate(6, Date.valueOf(inventory.getLastRefillDate()));
-            pstmt.executeUpdate();
-
-            ResultSet keys = pstmt.getGeneratedKeys();
-            if (keys.next()) {
-                return keys.getInt(1);
-            }
-        } catch (SQLException e) {
-            logger.error("Error adding inventory", e);
-        }
-        return -1;
-    }
-
-    /**
-     * Get all inventory
-     */
-    public List<Inventory> getAllInventory() {
-        List<Inventory> inventories = new ArrayList<>();
-        String sql = "SELECT * FROM inventory ORDER BY medicine_name";
-        try (Statement stmt = connection.createStatement()) {
-            ResultSet rs = stmt.executeQuery(sql);
-            while (rs.next()) {
-                Inventory inv = new Inventory();
-                inv.setId(rs.getInt("id"));
-                inv.setMedicineId(rs.getInt("medicine_id"));
-                inv.setMedicineName(rs.getString("medicine_name"));
-                inv.setQuantity(rs.getInt("quantity"));
-                inv.setThreshold(rs.getInt("threshold"));
-                inv.setDailyUsage(rs.getInt("daily_usage"));
-                inv.setLastRefillDate(rs.getDate("last_refill_date").toLocalDate());
-                inventories.add(inv);
-            }
-        } catch (SQLException e) {
-            logger.error("Error retrieving inventory", e);
-        }
-        return inventories;
-    }
-
-    /**
-     * Get inventory by medicine ID
-     */
-    public Inventory getInventoryByMedicineId(int medicineId) {
-        String sql = "SELECT * FROM inventory WHERE medicine_id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, medicineId);
             ResultSet rs = pstmt.executeQuery();
             if (rs.next()) {
-                Inventory inv = new Inventory();
-                inv.setId(rs.getInt("id"));
-                inv.setMedicineId(rs.getInt("medicine_id"));
-                inv.setMedicineName(rs.getString("medicine_name"));
-                inv.setQuantity(rs.getInt("quantity"));
-                inv.setThreshold(rs.getInt("threshold"));
-                inv.setDailyUsage(rs.getInt("daily_usage"));
-                inv.setLastRefillDate(rs.getDate("last_refill_date").toLocalDate());
-                return inv;
+                 Medicine m = mapResultSetToMedicine(rs);
+                 m.setSchedules(getSchedulesForMedicine(id));
+                 return m;
             }
         } catch (SQLException e) {
-            logger.error("Error retrieving inventory by medicine id", e);
+             logger.error("Error retrieving medicine", e);
         }
         return null;
     }
 
-    /**
-     * Update inventory
-     */
-    public boolean updateInventory(Inventory inventory) {
-        String sql = "UPDATE inventory SET medicine_id = ?, medicine_name = ?, quantity = ?, threshold = ?, daily_usage = ?, last_refill_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, inventory.getMedicineId());
-            pstmt.setString(2, inventory.getMedicineName());
-            pstmt.setInt(3, inventory.getQuantity());
-            pstmt.setInt(4, inventory.getThreshold());
-            pstmt.setInt(5, inventory.getDailyUsage());
-            pstmt.setDate(6, Date.valueOf(inventory.getLastRefillDate()));
-            pstmt.setInt(7, inventory.getId());
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error updating inventory", e);
-        }
-        return false;
+    // ============= USER OPERATIONS =============
+    
+    public User authenticateUser(String username, String password) {
+         String sql = "SELECT * FROM users WHERE username = ? AND password_hash = ?";
+         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+             pstmt.setString(1, username);
+             pstmt.setString(2, password); // Ideally text hashing
+             ResultSet rs = pstmt.executeQuery();
+             if(rs.next()) {
+                 User u = new User();
+                 u.setId(rs.getInt("id"));
+                 u.setUsername(rs.getString("username"));
+                 u.setRole(rs.getString("role"));
+                 u.setFullName(rs.getString("full_name"));
+                 return u;
+             }
+         } catch(SQLException e) {
+             logger.error("Error authenticating", e);
+         }
+         return null;
+    }
+    
+    public boolean registerUser(User user) {
+         String sql = "INSERT INTO users(username, password_hash, role, full_name) VALUES(?, ?, ?, ?)";
+         try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+             pstmt.setString(1, user.getUsername());
+             pstmt.setString(2, user.getPassword()); // Storing raw/simple hash for now
+             pstmt.setString(3, user.getRole());
+             pstmt.setString(4, user.getFullName());
+             return pstmt.executeUpdate() > 0;
+         } catch(SQLException e) {
+             logger.error("Error registering user", e);
+         }
+         return false;
     }
 
-    /**
-     * Delete inventory
-     */
-    public boolean deleteInventory(int id) {
-        String sql = "DELETE FROM inventory WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, id);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error deleting inventory", e);
-        }
-        return false;
-    }
-
-    // ============= DOSE HISTORY OPERATIONS =============
-
-    /**
-     * Add dose history record
-     */
+    // ============= HISTORY OPERATIONS =============
     public int addDoseHistory(DoseHistory history) {
-        String sql = "INSERT INTO dose_history(medicine_id, reminder_id, medicine_name, date, time, status, notes) VALUES(?, ?, ?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        String sql = "INSERT INTO dose_history(medicine_id, scheduled_time, taken_time, status, notes) VALUES(?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
             pstmt.setInt(1, history.getMedicineId());
-            pstmt.setInt(2, history.getReminderId());
-            pstmt.setString(3, history.getMedicineName());
-            pstmt.setDate(4, Date.valueOf(history.getDate()));
-            pstmt.setString(5, history.getTime() != null ? history.getTime().toString() : null);
-            pstmt.setString(6, history.getStatus());
-            pstmt.setString(7, history.getNotes());
+            pstmt.setString(2, history.getScheduledTime() != null ? history.getScheduledTime().toString() : null);
+            pstmt.setString(3, history.getTakenTime() != null ? history.getTakenTime().toString() : null);
+            pstmt.setString(4, history.getStatus());
+            pstmt.setString(5, history.getNotes());
             pstmt.executeUpdate();
-
-            ResultSet keys = pstmt.getGeneratedKeys();
-            if (keys.next()) {
-                return keys.getInt(1);
+            
+            try (Statement stmt = connection.createStatement();
+                 ResultSet keyRs = stmt.executeQuery("SELECT last_insert_rowid()")) {
+                if (keyRs.next()) return keyRs.getInt(1);
             }
         } catch (SQLException e) {
             logger.error("Error adding dose history", e);
@@ -548,458 +428,29 @@ public class DatabaseManager {
         return -1;
     }
 
-    /**
-     * Get all dose history
-     */
     public List<DoseHistory> getAllDoseHistory() {
-        List<DoseHistory> histories = new ArrayList<>();
-        String sql = "SELECT * FROM dose_history ORDER BY date DESC, time DESC";
+        List<DoseHistory> list = new ArrayList<>();
+        // Join with medicines to get name
+        String sql = "SELECT h.*, m.name as medicine_name FROM dose_history h LEFT JOIN medicines m ON h.medicine_id = m.id ORDER BY h.scheduled_time DESC";
         try (Statement stmt = connection.createStatement()) {
             ResultSet rs = stmt.executeQuery(sql);
             while (rs.next()) {
                 DoseHistory h = new DoseHistory();
                 h.setId(rs.getInt("id"));
                 h.setMedicineId(rs.getInt("medicine_id"));
-                h.setReminderId(rs.getInt("reminder_id"));
                 h.setMedicineName(rs.getString("medicine_name"));
-                h.setDate(rs.getDate("date").toLocalDate());
-                String timeStr = rs.getString("time");
-                if (timeStr != null) {
-                    h.setTime(LocalTime.parse(timeStr));
-                }
+                String sched = rs.getString("scheduled_time");
+                if (sched != null) h.setScheduledTime(LocalDateTime.parse(sched));
+                String taken = rs.getString("taken_time");
+                if (taken != null) h.setTakenTime(LocalDateTime.parse(taken));
                 h.setStatus(rs.getString("status"));
                 h.setNotes(rs.getString("notes"));
-                histories.add(h);
+                list.add(h);
             }
         } catch (SQLException e) {
-            logger.error("Error retrieving dose history", e);
+            logger.error("Error getting history", e);
         }
-        return histories;
-    }
-
-    /**
-     * Get history by date range
-     */
-    public List<DoseHistory> getHistoryByDateRange(LocalDate startDate, LocalDate endDate) {
-        List<DoseHistory> histories = new ArrayList<>();
-        String sql = "SELECT * FROM dose_history WHERE date BETWEEN ? AND ? ORDER BY date DESC, time DESC";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setDate(1, Date.valueOf(startDate));
-            pstmt.setDate(2, Date.valueOf(endDate));
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                DoseHistory h = new DoseHistory();
-                h.setId(rs.getInt("id"));
-                h.setMedicineId(rs.getInt("medicine_id"));
-                h.setReminderId(rs.getInt("reminder_id"));
-                h.setMedicineName(rs.getString("medicine_name"));
-                h.setDate(rs.getDate("date").toLocalDate());
-                String timeStr = rs.getString("time");
-                if (timeStr != null) {
-                    h.setTime(LocalTime.parse(timeStr));
-                }
-                h.setStatus(rs.getString("status"));
-                h.setNotes(rs.getString("notes"));
-                histories.add(h);
-            }
-        } catch (SQLException e) {
-            logger.error("Error retrieving history by date range", e);
-        }
-        return histories;
-    }
-
-    /**
-     * Get history by medicine ID
-     */
-    public List<DoseHistory> getHistoryByMedicineId(int medicineId) {
-        List<DoseHistory> histories = new ArrayList<>();
-        String sql = "SELECT * FROM dose_history WHERE medicine_id = ? ORDER BY date DESC, time DESC";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, medicineId);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                DoseHistory h = new DoseHistory();
-                h.setId(rs.getInt("id"));
-                h.setMedicineId(rs.getInt("medicine_id"));
-                h.setReminderId(rs.getInt("reminder_id"));
-                h.setMedicineName(rs.getString("medicine_name"));
-                h.setDate(rs.getDate("date").toLocalDate());
-                String timeStr = rs.getString("time");
-                if (timeStr != null) {
-                    h.setTime(LocalTime.parse(timeStr));
-                }
-                h.setStatus(rs.getString("status"));
-                h.setNotes(rs.getString("notes"));
-                histories.add(h);
-            }
-        } catch (SQLException e) {
-            logger.error("Error retrieving history by medicine id", e);
-        }
-        return histories;
-    }
-
-    /**
-     * Update dose history
-     */
-    public boolean updateDoseHistory(DoseHistory history) {
-        String sql = "UPDATE dose_history SET medicine_id = ?, reminder_id = ?, medicine_name = ?, date = ?, time = ?, status = ?, notes = ? WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, history.getMedicineId());
-            pstmt.setInt(2, history.getReminderId());
-            pstmt.setString(3, history.getMedicineName());
-            pstmt.setDate(4, Date.valueOf(history.getDate()));
-            pstmt.setString(5, history.getTime() != null ? history.getTime().toString() : null);
-            pstmt.setString(6, history.getStatus());
-            pstmt.setString(7, history.getNotes());
-            pstmt.setInt(8, history.getId());
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error updating dose history", e);
-        }
-        return false;
-    }
-
-    /**
-     * Delete dose history
-     */
-    public boolean deleteDoseHistory(int id) {
-        String sql = "DELETE FROM dose_history WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, id);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error deleting dose history", e);
-        }
-        return false;
-    }
-
-    /**
-     * Get adherence percentage for a medicine in a given date range
-     */
-    public double getAdherencePercentage(int medicineId, LocalDate startDate, LocalDate endDate) {
-        String sql = "SELECT COUNT(CASE WHEN status = ? THEN 1 END) as taken, COUNT(*) as total " +
-                "FROM dose_history WHERE medicine_id = ? AND date BETWEEN ? AND ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, DoseHistory.STATUS_TAKEN);
-            pstmt.setInt(2, medicineId);
-            pstmt.setDate(3, Date.valueOf(startDate));
-            pstmt.setDate(4, Date.valueOf(endDate));
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                int taken = rs.getInt("taken");
-                int total = rs.getInt("total");
-                return total > 0 ? (taken * 100.0) / total : 0;
-            }
-        } catch (SQLException e) {
-            logger.error("Error calculating adherence percentage", e);
-        }
-        return 0;
-    }
-
-    // ============= USER OPERATIONS =============
-
-    /**
-     * Add new user to database
-     */
-    public int addUser(User user) {
-        String sql = "INSERT INTO users(username, password_hash, role, full_name, email) VALUES(?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setString(1, user.getUsername());
-            pstmt.setString(2, user.getPasswordHash());
-            pstmt.setString(3, user.getRole().toString());
-            pstmt.setString(4, user.getFullName());
-            pstmt.setString(5, user.getEmail());
-            pstmt.executeUpdate();
-
-            ResultSet keys = pstmt.getGeneratedKeys();
-            if (keys.next()) {
-                return keys.getInt(1);
-            }
-        } catch (SQLException e) {
-            logger.error("Error adding user", e);
-        }
-        return -1;
-    }
-
-    /**
-     * Get user by username
-     */
-    public User getUserByUsername(String username) {
-        String sql = "SELECT * FROM users WHERE username = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, username);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                User user = new User();
-                user.setId(rs.getInt("id"));
-                user.setUsername(rs.getString("username"));
-                user.setPasswordHash(rs.getString("password_hash"));
-                user.setRole(User.Role.valueOf(rs.getString("role")));
-                user.setFullName(rs.getString("full_name"));
-                user.setEmail(rs.getString("email"));
-                user.setActive(rs.getBoolean("active"));
-                Timestamp createdAt = rs.getTimestamp("created_at");
-                if (createdAt != null) {
-                    user.setCreatedAt(createdAt.toLocalDateTime());
-                }
-                return user;
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting user by username", e);
-        }
-        return null;
-    }
-
-    /**
-     * Get user by ID
-     */
-    public User getUserById(int id) {
-        String sql = "SELECT * FROM users WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, id);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                User user = new User();
-                user.setId(rs.getInt("id"));
-                user.setUsername(rs.getString("username"));
-                user.setPasswordHash(rs.getString("password_hash"));
-                user.setRole(User.Role.valueOf(rs.getString("role")));
-                user.setFullName(rs.getString("full_name"));
-                user.setEmail(rs.getString("email"));
-                user.setActive(rs.getBoolean("active"));
-                Timestamp createdAt = rs.getTimestamp("created_at");
-                if (createdAt != null) {
-                    user.setCreatedAt(createdAt.toLocalDateTime());
-                }
-                return user;
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting user by id", e);
-        }
-        return null;
-    }
-
-    /**
-     * Update user information
-     */
-    public boolean updateUser(User user) {
-        String sql = "UPDATE users SET password_hash = ?, role = ?, full_name = ?, email = ?, active = ? WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setString(1, user.getPasswordHash());
-            pstmt.setString(2, user.getRole().toString());
-            pstmt.setString(3, user.getFullName());
-            pstmt.setString(4, user.getEmail());
-            pstmt.setBoolean(5, user.isActive());
-            pstmt.setInt(6, user.getId());
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error updating user", e);
-        }
-        return false;
-    }
-
-    // ============= GUARDIAN-PATIENT LINK OPERATIONS =============
-
-    /**
-     * Link a guardian to a patient
-     */
-    public int linkGuardianToPatient(int guardianId, int patientId) {
-        String sql = "INSERT INTO guardian_patient_links(guardian_id, patient_id) VALUES(?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setInt(1, guardianId);
-            pstmt.setInt(2, patientId);
-            pstmt.executeUpdate();
-
-            ResultSet keys = pstmt.getGeneratedKeys();
-            if (keys.next()) {
-                return keys.getInt(1);
-            }
-        } catch (SQLException e) {
-            logger.error("Error linking guardian to patient", e);
-        }
-        return -1;
-    }
-
-    /**
-     * Get all patients linked to a guardian
-     */
-    public List<GuardianPatientLink> getPatientsByGuardianId(int guardianId) {
-        List<GuardianPatientLink> links = new ArrayList<>();
-        String sql = "SELECT gpl.*, u.username as patient_username, u.full_name as patient_full_name " +
-                "FROM guardian_patient_links gpl " +
-                "JOIN users u ON gpl.patient_id = u.id " +
-                "WHERE gpl.guardian_id = ? AND gpl.active = 1";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, guardianId);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                GuardianPatientLink link = new GuardianPatientLink();
-                link.setId(rs.getInt("id"));
-                link.setGuardianId(rs.getInt("guardian_id"));
-                link.setPatientId(rs.getInt("patient_id"));
-                link.setPatientUsername(rs.getString("patient_username"));
-                link.setPatientFullName(rs.getString("patient_full_name"));
-                link.setActive(rs.getBoolean("active"));
-                Timestamp linkedAt = rs.getTimestamp("linked_at");
-                if (linkedAt != null) {
-                    link.setLinkedAt(linkedAt.toLocalDateTime());
-                }
-                links.add(link);
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting patients by guardian id", e);
-        }
-        return links;
-    }
-
-    /**
-     * Get all guardians linked to a patient
-     */
-    public List<GuardianPatientLink> getGuardiansByPatientId(int patientId) {
-        List<GuardianPatientLink> links = new ArrayList<>();
-        String sql = "SELECT gpl.*, u.username as guardian_username " +
-                "FROM guardian_patient_links gpl " +
-                "JOIN users u ON gpl.guardian_id = u.id " +
-                "WHERE gpl.patient_id = ? AND gpl.active = 1";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, patientId);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                GuardianPatientLink link = new GuardianPatientLink();
-                link.setId(rs.getInt("id"));
-                link.setGuardianId(rs.getInt("guardian_id"));
-                link.setPatientId(rs.getInt("patient_id"));
-                link.setGuardianUsername(rs.getString("guardian_username"));
-                link.setActive(rs.getBoolean("active"));
-                Timestamp linkedAt = rs.getTimestamp("linked_at");
-                if (linkedAt != null) {
-                    link.setLinkedAt(linkedAt.toLocalDateTime());
-                }
-                links.add(link);
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting guardians by patient id", e);
-        }
-        return links;
-    }
-
-    /**
-     * Unlink a guardian from a patient
-     */
-    public boolean unlinkGuardianFromPatient(int guardianId, int patientId) {
-        String sql = "UPDATE guardian_patient_links SET active = 0 WHERE guardian_id = ? AND patient_id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, guardianId);
-            pstmt.setInt(2, patientId);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error unlinking guardian from patient", e);
-        }
-        return false;
-    }
-
-    // ============= NOTIFICATION OPERATIONS =============
-
-    /**
-     * Add new notification
-     */
-    public int addNotification(Notification notification) {
-        String sql = "INSERT INTO notifications(guardian_id, patient_id, type, message, details) VALUES(?, ?, ?, ?, ?)";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            pstmt.setInt(1, notification.getGuardianId());
-            pstmt.setInt(2, notification.getPatientId());
-            pstmt.setString(3, notification.getType().toString());
-            pstmt.setString(4, notification.getMessage());
-            pstmt.setString(5, notification.getDetails());
-            pstmt.executeUpdate();
-
-            ResultSet keys = pstmt.getGeneratedKeys();
-            if (keys.next()) {
-                return keys.getInt(1);
-            }
-        } catch (SQLException e) {
-            logger.error("Error adding notification", e);
-        }
-        return -1;
-    }
-
-    /**
-     * Get all notifications for a guardian
-     */
-    public List<Notification> getNotificationsByGuardianId(int guardianId) {
-        List<Notification> notifications = new ArrayList<>();
-        String sql = "SELECT n.*, u.full_name as patient_name " +
-                "FROM notifications n " +
-                "JOIN users u ON n.patient_id = u.id " +
-                "WHERE n.guardian_id = ? ORDER BY n.created_at DESC";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, guardianId);
-            ResultSet rs = pstmt.executeQuery();
-            while (rs.next()) {
-                Notification notification = new Notification();
-                notification.setId(rs.getInt("id"));
-                notification.setGuardianId(rs.getInt("guardian_id"));
-                notification.setPatientId(rs.getInt("patient_id"));
-                notification.setPatientName(rs.getString("patient_name"));
-                notification.setType(Notification.Type.valueOf(rs.getString("type")));
-                notification.setMessage(rs.getString("message"));
-                notification.setDetails(rs.getString("details"));
-                notification.setRead(rs.getBoolean("read"));
-                Timestamp createdAt = rs.getTimestamp("created_at");
-                if (createdAt != null) {
-                    notification.setCreatedAt(createdAt.toLocalDateTime());
-                }
-                notifications.add(notification);
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting notifications by guardian id", e);
-        }
-        return notifications;
-    }
-
-    /**
-     * Get unread notification count for a guardian
-     */
-    public int getUnreadNotificationCount(int guardianId) {
-        String sql = "SELECT COUNT(*) FROM notifications WHERE guardian_id = ? AND read = 0";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, guardianId);
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-        } catch (SQLException e) {
-            logger.error("Error getting unread notification count", e);
-        }
-        return 0;
-    }
-
-    /**
-     * Mark notification as read
-     */
-    public boolean markNotificationAsRead(int notificationId) {
-        String sql = "UPDATE notifications SET read = 1 WHERE id = ?";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, notificationId);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error marking notification as read", e);
-        }
-        return false;
-    }
-
-    /**
-     * Mark all notifications as read for a guardian
-     */
-    public boolean markAllNotificationsAsRead(int guardianId) {
-        String sql = "UPDATE notifications SET read = 1 WHERE guardian_id = ? AND read = 0";
-        try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
-            pstmt.setInt(1, guardianId);
-            return pstmt.executeUpdate() > 0;
-        } catch (SQLException e) {
-            logger.error("Error marking all notifications as read", e);
-        }
-        return false;
+        return list;
     }
 }
 

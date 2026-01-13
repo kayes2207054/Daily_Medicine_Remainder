@@ -118,7 +118,7 @@ public class SignupFrame extends JFrame {
             return;
         }
 
-        if (authController.register(username, password, confirm)) {
+        if (authController.register(username, password, confirm, name)) {
             JOptionPane.showMessageDialog(this, "Account created successfully! Please login.", "Success", JOptionPane.INFORMATION_MESSAGE);
             goBack();
         } else {
